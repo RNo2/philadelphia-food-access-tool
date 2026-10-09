@@ -1,0 +1,31 @@
+Setting,Value
+SchoolURL,https://cdn.philasd.org/offices/performance/Open_Data/School_Information/School_List/2026-2027%20Master%20School%20List%20(20260928).csv
+EnrollmentURL,https://cdn.philasd.org/offices/performance/Open_Data/School_Information/Enrollment_Demographics_School/2025-2026%20Enrollment%20%26%20Demographics.csv
+EconomicURL,https://www.pa.gov/content/dam/copapwp-pagov/en/education/documents/data-and-reporting/loan-cancellation/public/2526%20public%20schools%20percent%20low%20income.xlsx
+FoodURL,https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/free_meal_sites/FeatureServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=json
+TitleHistoryURL,https://cdn.philasd.org/offices/performance/Open_Data/School_Information/School_List/2025-2026%20Master%20School%20List%20(20251001).csv
+DirectoryYear,2026-2027
+EconomicSheet,2026 LIP by School
+Method,Definition
+Scope,Philadelphia district schools and charters with last-published Title I status. Contracted schools excluded.
+Directory,2026–27 current school directory; demographics use 2025–26 published files.
+Title I gap,2026–27 and May 2026 directories omit charter Title I. Last populated October 2025 designation is matched on ULCS + AUN + PA code. Confirm charter eligibility before commitment.
+Fresh access,Nearest USDA-listed SNAP supermarket/superstore. Smaller groceries and produce affordability are not established.
+Food resources,"Distinct active City Food Site addresses within 1 mile, excluding closure flags. Recurrence, eligibility and neighboring jurisdictions require review."
+Review overrides,"Dated, nonnegative staff inputs with evidence replace the corresponding source proxy for 180 days by default. Zero is valid."
+Already served,"Staff flag only. No means unchecked, not proof the organization has never served the school. Yes excludes it immediately."
+Rank order,"Active score descending, then economic disadvantage descending, enrollment descending, then school ID ascending. Equal scores still share a need rank."
+Tier,"Baseline rubric only: 70+ Tier 1, 55+ Tier 2, 40+ Tier 3, below 40 Tier 4."
+Missing data,"Missing economic %, enrollment or access input prevents a complete score. No imputation."
+Refresh,Native query installation is required once on Windows. Then Data > Refresh All. See kit.
+Source check,"Government source files retrieved 2026-10-09. This is a retrieval date, not their reporting period."
+Annual update,"Review current district and PDE downloads. Update SourceSettings and validate keys, definitions and reporting periods."
+Retail feed,"https://services1.arcgis.com/RLQu0rK7h4kbsBq5/arcgis/rest/services/snap_retailer_location_data/FeatureServer/0/query?where=Latitude%3E%3D39.8%20AND%20Latitude%3C%3D40.2%20AND%20Longitude%3E%3D-75.4%20AND%20Longitude%3C%3D-74.9%20AND%20Store_Type%20IN%20(%27Supermarket%27,%27Super%20Store%27)&outFields=*&returnGeometry=false&f=json&resultRecordCount=1000&orderByFields=ObjectId"
+Notes,Straight-line Haversine miles (earth radius 3958.7613). Estimates guide outreach; listed access is not verified availability.
+School ID,Phone
+1010,215-400-8100
+1020,215-400-7900
+1030,215-400-7790
+1050,215-400-7780
+1100,215-400-7800
+1130,215-400-8170

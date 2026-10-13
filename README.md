@@ -55,3 +55,29 @@ Scenario controls adjust the *relative* importance of these components and norma
 ## Use note
 
 This is a screening and allocation-support tool, not an automatic eligibility system. Food-access indicators should be field-verified before program commitments.
+
+## Budget & Allocation Lab
+
+Compare need-first, student-reach-first, and economically disadvantaged enrollment
+allocations using a budget, equal cost per school per cycle, a school capacity limit,
+and a common assumed student participation rate. Need-first follows the sidebar's
+scenario weights. Under the equal-cost/common-participation assumptions, selecting
+schools with the largest enrollment maximizes estimated participating students.
+Costs and participation defaults are illustrative, not measured program inputs.
+The model does not include school-specific costs, travel constraints, or causal
+benefit estimates. Exported allocations include the planning assumptions.
+
+The lab also offers an aggregate outcome CSV for one evaluation cycle. Track actual
+cost, unique students served at each school, and food insecurity before/after among
+the same paired survey respondents. Outcome entries are session-only: download to
+retain them, and upload the CSV to resume. No student-level data is required or
+stored in the repository. Actual cost per student uses schools with complete cost
+and service data; before/after change uses complete paired-survey data. Such changes
+are descriptive and do not establish causal impact. A comparison group or randomized
+phased rollout can support stronger future evaluation.
+
+Run the functional and allocation tests from the repository directory:
+
+```bash
+python -m unittest discover -s tests
+```

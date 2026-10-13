@@ -1,6 +1,7 @@
 from pathlib import Path
 import math
 from html import escape
+from budget_lab import render_budget_lab
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -117,7 +118,7 @@ def school_table(df, filename):
 all_df = load_data()
 
 st.sidebar.markdown("### Priority Tool")
-page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Food Resources", "Priority Map", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
+page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Food Resources", "Priority Map", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")
@@ -254,6 +255,9 @@ elif page == "Priority Map":
         st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style=styles[style]), use_container_width=True)
         st.caption("Pan and zoom to explore; hover over a marker for school and food-access details. Map backgrounds require internet access. Food-site coordinates are not available in the model; use the Food Resources directories for current sites.")
     school_table(schools, "mapped_school_selection.csv")
+
+elif page == "Budget & Allocation Lab":
+    render_budget_lab(rankable, all_df)
 
 elif page == "Scenario Lab":
     st.markdown('<div class="hero"><div class="kicker">Policy sensitivity</div><h1>Scenario Lab</h1><p>Test how different value judgments change the recommended outreach order. This is the economics layer: the ranking depends on how the organization chooses to value competing objectives.</p></div>', unsafe_allow_html=True)

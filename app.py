@@ -85,7 +85,7 @@ def fmt_num(x, d=0):
     if pd.isna(x): return "—"
     return f"{x:,.{d}f}"
 
-def filter_schools(df, key):
+def filter_schools(df, key, tier_options=None):
     query = st.text_input("Search school name, ZIP, or School ID", key=key + "_search")
     a, b, c = st.columns(3)
     with a:
@@ -93,7 +93,8 @@ def filter_schools(df, key):
     with b:
         levels = st.multiselect("School level", sorted(df["Level"].dropna().unique()), default=sorted(df["Level"].dropna().unique()), key=key + "_levels")
     with c:
-        tiers = st.multiselect("Priority tier", sorted(df["Tier"].unique()), default=sorted(df["Tier"].unique()), key=key + "_tiers")
+        options = tier_options if tier_options is not None else sorted(df["Tier"].unique())
+        tiers = st.multiselect("Priority tier", options, default=options, key=key + "_tiers")
     out = df[df["Type"].isin(types) & df["Level"].isin(levels) & df["Tier"].isin(tiers)]
     if query.strip():
         match = pd.Series(False, index=out.index)
@@ -118,7 +119,7 @@ def school_table(df, filename):
 all_df = load_data()
 
 st.sidebar.markdown("### Priority Tool")
-page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Food Resources", "Priority Map", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
+page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")
@@ -176,6 +177,48 @@ elif page == "All Rankable Schools":
     b.metric("Total rankable schools", len(rankable))
     c.metric("Students in filtered schools", fmt_num(schools["Enrollment"].sum()))
     school_table(schools, "rankable_schools.csv")
+
+elif page == "Served Schools":
+    st.title("Served Schools")
+    st.write("See where schools in your SY26–27 service list land under the current scenario weights.")
+    st.caption("Ranks use the same eligible-school comparison pool as All Rankable Schools, including the served schools in this list. Changing sidebar weights recalculates scores and ranks. This page does not change the existing rankings or allocation candidates.")
+    service = pd.read_csv(BASE / "data" / "served_schools.csv", dtype={"School ID": str})
+    scored = apply_scenario(all_df, w).drop(columns=["Scenario rank"])
+    scored["Scenario rank"] = scored["School ID"].map(rankable.set_index("School ID")["Scenario rank"]).astype("Int64")
+    served = service.merge(scored, on="School ID", how="left", validate="one_to_one", indicator=True)
+    active = served[served["Service status"] == "Currently served"]
+    a, b, c, d = st.columns(4)
+    a.metric("Currently served schools", len(active))
+    b.metric("Formerly served schools", int((served["Service status"] == "Formerly served").sum()))
+    c.metric("Current schools with a scenario rank", int(active["Scenario rank"].notna().sum()))
+    d.metric("Enrollment at current schools", fmt_num(active["Enrollment"].sum()))
+    status = st.radio("Service group", ["Currently served", "Formerly served", "All listed schools"], horizontal=True)
+    subset = served if status == "All listed schools" else served[served["Service status"] == status]
+    unmatched = subset[subset["_merge"] == "left_only"]
+    if not unmatched.empty:
+        st.warning("These source schools could not be matched; no rank or score has been inferred.")
+        st.dataframe(unmatched[["Source school name", "Service status"]], hide_index=True)
+    matched = served[served["_merge"] == "both"].copy()
+    st.caption("Former service comes from the sheet’s ‘No longer serving’ section. Enrollment and need values come from the model snapshot, not the service sheet. Service status does not demonstrate an improvement in food security.")
+    choices = filter_schools(matched, "served", [tier(85), tier(60), tier(45), tier(0), "Missing data"])
+    if status != "All listed schools":
+        choices = choices[choices["Service status"] == status]
+    choices = choices.sort_values(["Scenario rank", "School"], na_position="last")
+    table = choices[["Scenario rank", "School", "Type", "Level", "School ID", "ZIP", "School address", "Enrollment", "Economic %", "Scenario score", "Tier", "Service status"]].rename(columns={"Type": "School type", "Level": "School level", "Economic %": "Economic need", "Scenario score": "Score /85"})
+    table["Economic need"] *= 100
+    st.dataframe(table, hide_index=True, use_container_width=True, column_config={"Economic need": st.column_config.NumberColumn(format="%.2f%%"), "Score /85": st.column_config.NumberColumn(format="%.1f")})
+    st.download_button("Download served-school rankings", table.to_csv(index=False).encode("utf-8"), "served_school_rankings.csv", "text/csv")
+    if choices.empty:
+        st.info("No served schools match these filters.")
+    else:
+        chart = choices.dropna(subset=["Scenario score"])
+        if not chart.empty:
+            st.plotly_chart(px.bar(chart.sort_values("Scenario score"), x="Scenario score", y="School", color="Service status", orientation="h", title="Priority scores across your service footprint", hover_data=["Scenario rank", "Level", "Tier"]), use_container_width=True)
+        if choices["Scenario rank"].isna().any():
+            st.info("A blank scenario rank means the school is outside the current rankable comparison pool or lacks required scoring data.")
+    with st.expander("Source and school-name matching"):
+        st.write("Source: SBD SY26x27 School Master Sheet, supplied October 14, 2026. Abbreviated names were resolved against school names and addresses; John B. Kelly was matched by name. Staff contacts and internal operational notes are omitted.")
+        st.dataframe(subset[["Source school name", "School", "School ID", "Service status", "Match basis"]], hide_index=True, use_container_width=True)
 
 elif page == "Food Resources":
     st.title("Food Resources")

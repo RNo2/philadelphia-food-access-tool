@@ -81,3 +81,14 @@ Run the functional and allocation tests from the repository directory:
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Served Schools
+
+The Served Schools page uses a sanitized school-ID crosswalk from the supplied
+SY26–27 master sheet: 15 current schools and 3 schools below “No longer serving.”
+Names were matched against the model's school names and addresses, with abbreviated
+names resolved explicitly. Staff contacts, internal notes, and the raw source sheet
+are not published. The page shows ranks against the existing eligible-school scenario
+pool, including listed served schools; it does not change existing allocation
+candidates. Scores respond to sidebar weights, and former service is displayed
+separately. Enrollment and economic-need values remain from the model snapshot.

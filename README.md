@@ -92,3 +92,23 @@ are not published. The page shows ranks against the existing eligible-school sce
 pool, including listed served schools; it does not change existing allocation
 candidates. Scores respond to sidebar weights, and former service is displayed
 separately. Enrollment and economic-need values remain from the model snapshot.
+
+## Workbook columns and nearby food-site evidence
+
+The overview, school directory, served-school tables, and portfolio views include
+food-evidence status, the reason a school needs attention, and its source Staff
+Review row, alongside food-distance/resource counts. The overview and directory
+also expose sequential scenario order separately from the shared-score rank.
+
+`data/food_sites.csv` contains the 309 public food-site listings extracted from the
+Data sheet (row 510 header) of `SBD_Expansion_Model_10.20.2026.xlsx`, supplied October
+20, 2026. The workbook reports government source retrieval on October 9, 2026.
+Workbook profile-distance/order columns were intentionally omitted because they
+apply only to the workbook's selected school. School Explorer and Food Resources
+recompute straight-line Haversine distances per selected school (earth radius
+3958.7613 miles), showing active candidate Food Sites within one mile and excluding
+recorded closures. Provider websites and the original City dataset reference are
+clickable. These are saved listings, not freshly verified opening hours, service
+eligibility, or available food. Counts can differ from the school's distinct-address
+resource metric when multiple listings share an address. No raw Staff Review notes
+or contact records were imported.

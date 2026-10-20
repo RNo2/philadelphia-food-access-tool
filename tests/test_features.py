@@ -38,7 +38,7 @@ class FeatureTests(unittest.TestCase):
         self.page("Food Resources")
         buttons = self.app.get("link_button")
         self.assertEqual(len(buttons), 3)
-        self.assertTrue(any("not been imported" in info.value for info in self.app.info))
+        self.assertTrue(any("have not been verified" in info.value for info in self.app.info))
         self.assertEqual(len(self.app.dataframe[0].value), 293)
         self.assertIn("Food evidence", self.app.dataframe[0].value.columns)
         self.app.multiselect[0].set_value([]).run()

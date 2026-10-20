@@ -108,7 +108,7 @@ def render_budget_lab(schools, all_schools):
     st.write(f"**Reach opportunity cost:** this choice has {max_reach - selected['Estimated participating students']:,.1f} fewer estimated participating students than the reach-first allocation. This is a model tradeoff, not a loss of proven benefit.")
     other = portfolios["Student reach first"]
     st.caption(f"{len(set(portfolio['School ID']) & set(other['School ID']))} schools overlap with the reach-first portfolio. Unallocated funds reflect whole-school cost, capacity, or the candidate limit.")
-    columns = ["School ID", "School", "Type", "Level", "Scenario score", "Enrollment", "Economic %", "Estimated participating students", "Estimated school cost ($)"]
+    columns = ["School ID", "School", "Type", "Level", "Scenario score", "Enrollment", "Economic %", "Estimated participating students", "Estimated school cost ($)", "Effective fresh miles", "Effective resources", "Food evidence", "Rationale", "Review row"]
     display = portfolio[columns].copy()
     display["Economic %"] *= 100
     st.dataframe(display, hide_index=True, use_container_width=True, column_config={"Economic %": st.column_config.NumberColumn(format="%.1f%%")})

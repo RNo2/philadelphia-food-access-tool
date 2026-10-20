@@ -1,5 +1,7 @@
 """Workbook food-site evidence; distances are recomputed for each school."""
 from pathlib import Path
+from html import escape
+from urllib.parse import urlsplit
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -28,7 +30,7 @@ def nearby_food_sites(sites, latitude, longitude):
 
 def render_food_sites(row, key):
     st.subheader('Nearby listed food sites')
-    st.caption('From SBD_Expansion_Model_10.20.2026.xlsx; source retrieved October 9, 2026. Active City Food Site candidates within one straight-line mile, excluding recorded closures. Listed websites are provider references, not confirmation of current hours or eligibility. Multiple listings can share an address; the model resource count uses distinct addresses.')
+    st.caption('Listed food sites within one straight-line mile. Check current hours and eligibility with the provider.')
     if pd.isna(row['Latitude']) or pd.isna(row['Longitude']):
         st.info('School coordinates are missing; nearby sites cannot be calculated.')
         return
@@ -36,9 +38,34 @@ def render_food_sites(row, key):
     if nearby.empty:
         st.info('No active candidate food sites within one mile in this snapshot. This does not establish that no food assistance is available.')
     else:
-        st.dataframe(nearby.rename(columns={'Site name': 'Food site'}), hide_index=True, use_container_width=True, column_config={
-            'Miles': st.column_config.NumberColumn(format='%.2f'),
-            'Website': st.column_config.LinkColumn('Website reference'),
-            'Source URL': st.column_config.LinkColumn('City source dataset'),
-        })
+        rows = []
+        for _, site in nearby.iterrows():
+            raw_url = '' if pd.isna(site['Website']) else str(site['Website'])
+            url = escape(raw_url, quote=True)
+            website = f'<a href="{url}" target="_blank" rel="noopener noreferrer">{url}</a>' if urlsplit(raw_url).scheme in ('http', 'https') else 'Not listed'
+            name = escape(str(site['Site name']))
+            address = escape(str(site['Address'])) if pd.notna(site['Address']) else 'Not listed'
+            rows.append(f'<tr><td>{site["Miles"]:.2f}</td><td>{name}</td><td>{address}</td><td>{website}</td></tr>')
+        st.markdown(
+            '<style>.food-sites-wrap{overflow-x:auto;margin:0.5rem 0 1rem}'
+            '.food-sites-table{width:100%;min-width:680px;border-collapse:collapse;font-size:14px;color:#12385a;background:white}'
+            '.food-sites-table thead th{background:#213e5b;color:white;padding:14px 16px;text-align:left;border:0;font-weight:600}'
+            '.food-sites-table tbody td{padding:20px 16px;border:0;vertical-align:top;line-height:1.5}'
+            '.food-sites-table td:first-child{text-align:right;white-space:nowrap;width:7%}'
+            '.food-sites-table th:nth-child(2){width:28%}.food-sites-table th:nth-child(3){width:25%}'
+            '.food-sites-table a{color:#075397;text-decoration:none;overflow-wrap:anywhere}'
+            '.food-sites-table a:hover{text-decoration:underline}'
+            '.food-sites-table a:focus-visible{outline:2px solid #075397;outline-offset:3px}</style>'
+            '<div class="food-sites-wrap"><table class="food-sites-table" aria-label="Nearby listed food sites">'
+            '<thead><tr><th scope="col">Miles</th><th scope="col">Food site</th><th scope="col">Address</th><th scope="col">Website</th></tr></thead>'
+            '<tbody>' + ''.join(rows) + '</tbody></table></div>',
+            unsafe_allow_html=True,
+        )
+        with st.expander('Source details and access restrictions'):
+            st.caption('From SBD_Expansion_Model_10.20.2026.xlsx; source retrieved October 9, 2026. Active City Food Site candidates, excluding recorded closures. Multiple listings can share an address; the model resource count uses distinct addresses.')
+            st.dataframe(nearby.rename(columns={'Site name': 'Food site'}), hide_index=True, use_container_width=True, column_config={
+                'Miles': st.column_config.NumberColumn(format='%.2f'),
+                'Website': st.column_config.LinkColumn('Website reference'),
+                'Source URL': st.column_config.LinkColumn('City source dataset'),
+            })
         st.download_button('Download nearby food sites', nearby.to_csv(index=False).encode('utf-8'), 'nearby_food_sites.csv', 'text/csv', key=key)

@@ -29,6 +29,9 @@ class StaffMapTests(unittest.TestCase):
         app.sidebar.radio[0].set_value('Distance review').run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
         self.assertEqual(len(app.dataframe[0].value),20)
+        service = pd.read_csv(ROOT/'data/served_schools.csv', dtype={'School ID':str})
+        served_ids = service.loc[service['Service status'].eq('Currently served'),'School ID']
+        self.assertFalse(app.dataframe[0].value['School ID'].isin(served_ids).any())
         self.assertTrue((app.dataframe[0].value['Miles from Share (approx.)'] >= 0).all())
         app.multiselect(key='staff_types').set_value(['District']).run()
         self.assertFalse(app.exception)
@@ -40,7 +43,6 @@ class StaffMapTests(unittest.TestCase):
         self.assertFalse(app.exception)
         self.assertTrue((app.dataframe[1].value['Miles apart']<3).all())
         app.checkbox(key='staff_spokes').set_value(False).run()
-        app.checkbox(key='staff_served').set_value(False).run()
         app.selectbox(key='staff_style').set_value('Dark').run()
         self.assertFalse(app.exception)
         app.multiselect(key='staff_types').set_value([]).run()

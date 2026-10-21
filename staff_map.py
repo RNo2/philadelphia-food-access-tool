@@ -1,6 +1,5 @@
 """Top-20 geographic planning, with explicit distance and location assumptions."""
 from pathlib import Path
-from html import escape
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -42,6 +41,9 @@ def distance_tables(schools, hub_lat, hub_lon):
 
 
 def render_staff_map(ranked, all_schools):
+    service = pd.read_csv(Path(__file__).resolve().parent / 'data/served_schools.csv', dtype={'School ID': str})
+    served_ids = service.loc[service['Service status'].eq('Currently served'), 'School ID']
+    ranked = ranked[~ranked['School ID'].isin(served_ids)].copy()
     st.title('Distance review')
     st.write('Compare the top 20 expansion priorities, their distances from Share, and schools clustered in the same area. Sidebar scenario weights update the selection.')
     st.info('Distances are straight-line miles, not driving routes or travel times. Close schools are review flags, not proof of duplicate service or a reason to exclude a school automatically.')
@@ -66,38 +68,30 @@ def render_staff_map(ranked, all_schools):
     c.metric('Schools missing valid coordinates', len(schools)-len(mapped))
     if len(schools) != len(mapped):
         st.warning('Some selected schools have no valid coordinates. They remain in the selected-school list but cannot appear in the map or distance comparisons.')
-    a, b, c = st.columns(3)
+    a, b = st.columns(2)
     names = a.checkbox('Show school names', True, key='staff_names')
     spokes = b.checkbox('Show Share-to-school connections', True, key='staff_spokes')
-    served_on = c.checkbox('Show currently served schools', True, key='staff_served')
     style = st.selectbox('Map background', ['Street', 'Light', 'Dark'], key='staff_style')
-    hub = pd.DataFrame([{'Longitude': hub_lon, 'Latitude': hub_lat, 'label': '◆ SHARE (approx.)', 'tip': escape('Share Food Program · ' + address + ' · approximate pin')}])
+    hub = pd.DataFrame([{'Longitude': hub_lon, 'Latitude': hub_lat, 'label': '◆ SHARE (approx.)', 'tip': 'Share Food Program'}])
     layers = [pdk.Layer('ScatterplotLayer', hub, id='share-hub', get_position='[Longitude, Latitude]', get_radius=200, radius_min_pixels=14, get_fill_color=[190,35,50], pickable=True),
               pdk.Layer('TextLayer', hub, id='share-label', get_position='[Longitude, Latitude]', get_text='label', get_color=[190,35,50], get_size=16, get_pixel_offset=[0,-28])]
     view_points = [[hub_lon, hub_lat]]
-    if served_on:
-        service = pd.read_csv(Path(__file__).resolve().parent / 'data/served_schools.csv', dtype={'School ID': str})
-        served = all_schools[all_schools['School ID'].isin(service.loc[service['Service status'].eq('Currently served'), 'School ID'])].copy()
-        served = served[served['Latitude'].between(-90,90) & served['Longitude'].between(-180,180)]
-        served['tip'] = served['School'].map(lambda v: escape(v) + '<br/>Currently served (uploaded service list)')
-        layers.append(pdk.Layer('ScatterplotLayer', served, id='served-schools', get_position='[Longitude, Latitude]', get_radius=250, filled=False, stroked=True, get_line_color=[170,65,190], line_width_min_pixels=3, radius_min_pixels=13, pickable=True))
-        view_points += served[['Longitude','Latitude']].values.tolist()
     if not mapped.empty:
         mapped['number'] = mapped['Order'].astype(str)
         mapped['name_label'] = mapped['Order'].astype(str) + ' · ' + mapped['School']
-        mapped['tip'] = mapped.apply(lambda r: escape(r['School']) + '<br/>' + escape(r['Type'] + ' · ' + r['Level']) + '<br/>' + escape(str(r['School address'])) + f'<br/>Scenario rank: {r["Scenario rank"]}; score: {r["Scenario score"]:.1f}/85<br/>From Share (approx.): {r["Miles from Share (approx.)"]:.2f} mi', axis=1)
+        mapped['tip'] = mapped['School']
         if spokes:
             lines = pd.DataFrame([{'source':[hub_lon,hub_lat], 'target':[r['Longitude'],r['Latitude']]} for _,r in mapped.iterrows()])
             layers.append(pdk.Layer('LineLayer', lines, id='share-connections', get_source_position='source', get_target_position='target', get_color=[70,125,180,100], get_width=1))
         if not close.empty:
-            close['tip'] = close.apply(lambda r: escape(r['School A']) + ' ↔ ' + escape(r['School B']) + f'<br/>{r["Miles apart"]:.2f} mi apart', axis=1)
+            close['tip'] = close['School A'] + ' ↔ ' + close['School B']
             layers.append(pdk.Layer('LineLayer', close, id='close-school-pairs', get_source_position='source', get_target_position='target', get_color=[235,135,30,210], get_width=4, pickable=True))
         layers.append(pdk.Layer('ScatterplotLayer', mapped, id='top20-schools', get_position='[Longitude, Latitude]', get_radius=150, radius_min_pixels=10, get_fill_color=[30,105,165,230], pickable=True, auto_highlight=True))
         layers.append(pdk.Layer('TextLayer', mapped, id='school-labels', get_position='[Longitude, Latitude]', get_text='name_label' if names else 'number', get_size=12, get_pixel_offset=[0,-20], get_color=[225,238,250] if style == 'Dark' else [25,75,125]))
         view_points += mapped[['Longitude','Latitude']].values.tolist()
     view = pdk.data_utils.compute_view(view_points, view_proportion=0.8) if len(view_points)>1 else pdk.ViewState(latitude=hub_lat, longitude=hub_lon, zoom=12)
-    st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_provider='carto', map_style={'Street':'road','Light':'light','Dark':'dark'}[style], tooltip={'html':'{tip}', 'style':{'backgroundColor':'#17334d','color':'white'}}), use_container_width=True)
-    st.caption('Red = Share approximate location · Blue = selected schools (labels use scenario order) · Orange lines = close pairs · Purple rings = currently served. A school with both a blue pin and purple ring is already on the service list; the existing candidate rankings still include it. Connections are not roads or service boundaries.')
+    st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_provider='carto', map_style={'Street':'road','Light':'light','Dark':'dark'}[style], tooltip={'text':'{tip}', 'style':{'backgroundColor':'#17334d','color':'white'}}), use_container_width=True)
+    st.caption('Red = Share approximate location · Blue = selected schools · Orange lines = close pairs. Currently served schools are excluded from this page before selecting the top 20. Scenario ranks and order retain their citywide values. Connections are not roads or service boundaries.')
     st.subheader('Selected schools and distance from Share')
     table = schools[['Order','Scenario rank','School','Type','Level','School ID','School address','Scenario score']].merge(mapped[['School ID','Miles from Share (approx.)']], on='School ID', how='left')
     sort = st.selectbox('Sort school list', ['Scenario order', 'Nearest Share', 'Farthest Share'], key='staff_sort')

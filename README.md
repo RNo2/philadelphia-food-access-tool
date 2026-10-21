@@ -123,10 +123,10 @@ scenario order while tables retain shared-score rank.
 
 Staff can view Share-to-school connections, flag nearby school pairs using an
 adjustable threshold, compare any two schools, inspect the full distance grid,
-sort by distance from Share, and download school and pair-distance CSVs. Optional
-purple rings identify currently served schools from the supplied service crosswalk.
-These contextual rings are not counted in the selected-school pair comparisons.
-The page does not remove served schools from the existing candidate pool.
+sort by distance from Share, and download school and pair-distance CSVs. Currently served schools from the supplied service crosswalk are excluded before
+selecting the top 20 on this page, including from pair comparisons and exports.
+Other pages retain their existing candidate pools. School hover labels show only
+the school name.
 
 The confirmed dispatch address is 2901 W. Hunting Park Avenue, Philadelphia, PA
 19129. Live geocoding was blocked during development; the initial Share coordinates

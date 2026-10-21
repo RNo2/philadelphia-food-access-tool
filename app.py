@@ -143,14 +143,26 @@ rankable = ranked[ranked["Scenario score"].notna()].copy()
 
 if page == "Overview":
     st.markdown('<div class="hero"><div class="kicker">Applied Economics · Food Access · Resource Allocation</div><h1>Philadelphia School Food Access Priority Tool</h1><p>A transparent decision-support model for identifying schools where fresh-food outreach may have the greatest need. The tool combines economic disadvantage, geographic fresh-food access, nearby food resources, and potential student reach.</p></div>', unsafe_allow_html=True)
+    f1, f2 = st.columns(2)
+    with f1:
+        overview_types = st.multiselect("School type", sorted(eligible_df["Type"].dropna().unique()), default=sorted(eligible_df["Type"].dropna().unique()), key="overview_types")
+    with f2:
+        overview_levels = st.multiselect("School level", sorted(eligible_df["Level"].dropna().unique()), default=sorted(eligible_df["Level"].dropna().unique()), key="overview_levels")
+    overview_eligible = eligible_df[eligible_df["Type"].isin(overview_types) & eligible_df["Level"].isin(overview_levels)]
+    overview_rankable = rankable[rankable["Type"].isin(overview_types) & rankable["Level"].isin(overview_levels)]
+    top = overview_rankable.head(15).copy()
+    st.caption("Filters apply first, then we select the top 15 matching schools. Metrics reflect your selection; rank and order retain their citywide scenario values. Combined grade levels are listed separately.")
     c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Eligible candidates", f"{len(eligible_df):,}")
-    c2.metric("Rankable now", f"{len(rankable):,}")
-    c3.metric("Tier 1 schools", f"{(rankable['Scenario score']>=70).sum():,}")
-    c4.metric("Students in Top 15", f"{int(rankable.head(15)['Enrollment'].sum()):,}")
+    c1.metric("Eligible candidates", f"{len(overview_eligible):,}")
+    c2.metric("Rankable now", f"{len(overview_rankable):,}")
+    c3.metric("Tier 1 schools", f"{(overview_rankable['Scenario score']>=70).sum():,}")
+    c4.metric("Students in Top 15", f"{int(top['Enrollment'].sum()):,}")
 
     st.markdown("### Highest-priority schools")
-    top = rankable.head(15).copy()
+    if top.empty:
+        st.info("No rankable schools match these filters.")
+    elif len(top) < 15:
+        st.caption(f"Showing all {len(top)} matching rankable schools; fewer than 15 match your filters.")
     show = top[["Scenario rank","School","Type","Economic %","Enrollment","Effective fresh miles","Effective resources","Scenario score","Tier"]].copy()
     show.columns = ["Rank","School","Type","Economic need","Enrollment","Fresh access (mi)","Resources ≤1mi","Score /85","Priority tier"]
     show["Economic need"] *= 100

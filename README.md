@@ -112,3 +112,28 @@ clickable. These are saved listings, not freshly verified opening hours, service
 eligibility, or available food. Counts can differ from the school's distinct-address
 resource metric when multiple listings share an address. No raw Staff Review notes
 or contact records were imported.
+
+## Top 20 Staff Map
+
+A separate staff planning page keeps the original Priority Map and Top 15 overview
+unchanged. It shows the overall top 20 under current scenario weights, with school
+type/grade-level filters. The alternate selection mode finds the top 20 within the
+chosen types/levels. Ties retain the existing deterministic order. Labels show
+scenario order while tables retain shared-score rank.
+
+Staff can view Share-to-school connections, flag nearby school pairs using an
+adjustable threshold, compare any two schools, inspect the full distance grid,
+sort by distance from Share, and download school and pair-distance CSVs. Optional
+purple rings identify currently served schools from the supplied service crosswalk.
+These contextual rings are not counted in the selected-school pair comparisons.
+The page does not remove served schools from the existing candidate pool.
+
+The confirmed dispatch address is 2901 W. Hunting Park Avenue, Philadelphia, PA
+19129. Live geocoding was blocked during development; the initial Share coordinates
+are explicitly approximate and can be edited for the current session. The address
+label alone does not geocode or move the pin. Exports include the entered hub label
+and coordinates. All distances are straight-line Haversine miles, not driving miles,
+travel times, service catchments, or evidence of duplicated benefits. Invalid school
+coordinates are flagged and excluded only from geographic calculations. Map tiles
+require browser internet access. This page has no access restriction; it is part of
+the existing public app.

@@ -3,6 +3,7 @@ import math
 from html import escape
 from budget_lab import render_budget_lab
 from food_evidence import render_food_sites
+from staff_map import render_staff_map
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -120,7 +121,7 @@ def school_table(df, filename):
 all_df = load_data()
 
 st.sidebar.markdown("### Priority Tool")
-page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
+page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Top 20 Staff Map", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")
@@ -304,6 +305,9 @@ elif page == "Priority Map":
         st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style=styles[style]), use_container_width=True)
         st.caption("Pan and zoom to explore; hover over a marker for school and food-access details. Map backgrounds require internet access. See Food Resources or School Explorer for nearby food-site listings from the workbook snapshot; consult providers for current availability.")
     school_table(schools, "mapped_school_selection.csv")
+
+elif page == "Top 20 Staff Map":
+    render_staff_map(rankable, all_df)
 
 elif page == "Budget & Allocation Lab":
     render_budget_lab(rankable, all_df)

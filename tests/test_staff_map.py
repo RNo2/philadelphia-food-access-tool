@@ -26,7 +26,7 @@ class StaffMapTests(unittest.TestCase):
 
     def test_staff_map_controls(self):
         app = AppTest.from_file(str(ROOT/'app.py'), default_timeout=60).run()
-        app.sidebar.radio[0].set_value('Top 20 Staff Map').run()
+        app.sidebar.radio[0].set_value('Distance review').run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
         self.assertEqual(len(app.dataframe[0].value),20)
         self.assertTrue((app.dataframe[0].value['Miles from Share (approx.)'] >= 0).all())

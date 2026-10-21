@@ -42,7 +42,7 @@ def distance_tables(schools, hub_lat, hub_lon):
 
 
 def render_staff_map(ranked, all_schools):
-    st.title('Top 20 · Staff Distance Map')
+    st.title('Distance review')
     st.write('Compare the top 20 expansion priorities, their distances from Share, and schools clustered in the same area. Sidebar scenario weights update the selection.')
     st.info('Distances are straight-line miles, not driving routes or travel times. Close schools are review flags, not proof of duplicate service or a reason to exclude a school automatically.')
     with st.expander('Share dispatch location · approximate pin — confirm before route planning'):

@@ -121,7 +121,7 @@ def school_table(df, filename):
 all_df = load_data()
 
 st.sidebar.markdown("### Priority Tool")
-page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Top 20 Staff Map", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
+page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Distance review", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")
@@ -306,7 +306,7 @@ elif page == "Priority Map":
         st.caption("Pan and zoom to explore; hover over a marker for school and food-access details. Map backgrounds require internet access. See Food Resources or School Explorer for nearby food-site listings from the workbook snapshot; consult providers for current availability.")
     school_table(schools, "mapped_school_selection.csv")
 
-elif page == "Top 20 Staff Map":
+elif page == "Distance review":
     render_staff_map(rankable, all_df)
 
 elif page == "Budget & Allocation Lab":

@@ -121,7 +121,7 @@ def school_table(df, filename):
 all_df = load_data()
 
 st.sidebar.markdown("### Priority Tool")
-page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Distance review", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources"], label_visibility="collapsed")
+page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Distance review", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources", "Analytical Framework"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")
@@ -390,15 +390,36 @@ elif page == "School Explorer":
         st.markdown(f'<div class="card">{row["Rationale"]}</div>', unsafe_allow_html=True)
 
 elif page == "Methodology & Sources":
-    methodology = (BASE / "docs" / "methodology.md").read_text(encoding="utf-8")
-    st.markdown(methodology)
-    st.markdown("## Source datasets and original links")
-    st.caption("These are the original source references saved with the model, not evidence that the app has fetched fresh data. Retrieval and reporting periods are described above.")
-    src = load_sources()
-    links = src[src["Value"].astype(str).str.startswith(("https://", "http://"))].copy()
-    st.dataframe(links.rename(columns={"Setting": "Source", "Value": "URL"}), hide_index=True, use_container_width=True,
-                 column_config={"URL": st.column_config.LinkColumn("Original source")})
-    st.download_button("Download methodology and references", methodology.encode("utf-8"), "methodology_and_sources.md", "text/markdown")
+    st.markdown('<div class="hero"><div class="kicker">Transparency</div><h1>Methodology & Sources</h1><p>The model is intentionally simple enough for staff to audit. Each component is scored from observable indicators, then combined into an 85-point priority score.</p></div>', unsafe_allow_html=True)
+    st.markdown("### Baseline rubric")
+    rubric = pd.DataFrame([
+        ["Economic need",30,"90%+ → 30; 80–89.9 → 25; 70–79.9 → 20; 60–69.9 → 15; 50–59.9 → 10; 40–49.9 → 5; below 40 → 0"],
+        ["Fresh food access",25,">1 mi → 25; 0.75–1 → 20; 0.50–0.74 → 15; 0.25–0.49 → 10; <0.25 → 5"],
+        ["Existing food-access resources",25,"0 → 25; 1 → 20; 2 → 15; 3 → 10; 4 → 5; 5+ → 0"],
+        ["Potential reach / enrollment",5,"700+ → 5; 500–699 → 4; 350–499 → 3; 200–349 → 2; under 200 → 1"],
+    ], columns=["Component","Maximum points","Scoring rule"])
+    st.dataframe(rubric,use_container_width=True,hide_index=True)
+    st.markdown("### Priority tiers")
+    st.write("**Tier 1:** 70–85 · **Tier 2:** 55–69 · **Tier 3:** 40–54 · **Tier 4:** 0–39")
+    st.markdown("### Ranking rule")
+    st.write("Scores are sorted descending, then economic disadvantage descending, enrollment descending, and School ID ascending. Schools missing a required input remain visible in the source model but are not given a complete scenario score.")
+    st.markdown("### Data provenance")
+    st.write(f"This public tool uses the model snapshot dated **{SNAPSHOT_DATE}**. Directory data are 2026–27; enrollment/demographic inputs are 2025–26. Charter Title I status uses the last populated 2025–26 designation where the current directory omits it and should be confirmed before commitment.")
+    src=load_sources()
+    links=src[src['Setting'].astype(str).str.contains('URL',case=False,na=False)].copy()
+    if not links.empty:
+        st.dataframe(links.rename(columns={"Setting":"Source","Value":"URL"}),use_container_width=True,hide_index=True)
+    st.markdown("### Important limitations")
+    st.markdown("""
+- Geographic proximity is a screening proxy, not proof of affordable or practical access.
+- A listed food site may have limited hours, recurrence, eligibility rules, or changing operations.
+- “Already served = No” means unchecked unless staff explicitly verified service history.
+- The tool prioritizes outreach; it does not determine legal/program eligibility and should not replace field verification.
+- Weight changes represent value judgments. They are useful for sensitivity analysis, not a claim that one set of weights is objectively correct.
+""")
+
+elif page == "Analytical Framework":
+    st.markdown((BASE / "docs" / "methodology.md").read_text(encoding="utf-8"))
 
 st.markdown("---")
 st.caption("Decision-support prototype built from the SBD Expansion Model. Public-facing outputs should be paired with staff verification and periodic data refreshes.")

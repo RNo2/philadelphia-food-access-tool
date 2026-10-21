@@ -79,7 +79,7 @@ class FeatureTests(unittest.TestCase):
 
     def test_existing_pages(self):
         self.assertEqual(len(self.app.dataframe[0].value), 15)
-        for name in ["Scenario Lab", "School Explorer", "Methodology & Sources"]:
+        for name in ["Scenario Lab", "School Explorer", "Methodology & Sources", "Analytical Framework"]:
             self.page(name)
 
 

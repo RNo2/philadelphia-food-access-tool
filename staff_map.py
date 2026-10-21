@@ -18,10 +18,9 @@ def miles_between(lat1, lon1, lat2, lon2):
     return 3958.7613 * 2 * np.arcsin(np.sqrt(np.clip(h, 0, 1)))
 
 
-def select_top_schools(ranked, types, levels, scope):
+def select_top_schools(ranked, types, levels):
     # Keep deterministic scenario ordering, including tie breakers from the app.
-    pool = ranked.head(20) if scope == 'Filter the overall top 20' else ranked
-    return pool[pool['Type'].isin(types) & pool['Level'].isin(levels)].head(20).copy()
+    return ranked[ranked['Type'].isin(types) & ranked['Level'].isin(levels)].head(20).copy()
 
 
 def distance_tables(schools, hub_lat, hub_lon):
@@ -53,12 +52,11 @@ def render_staff_map(ranked, all_schools):
         x, y = st.columns(2)
         hub_lat = x.number_input('Share latitude', min_value=-90.0, max_value=90.0, value=SHARE_LAT, format='%.6f', key='staff_hub_lat')
         hub_lon = y.number_input('Share longitude', min_value=-180.0, max_value=180.0, value=SHARE_LON, format='%.6f', key='staff_hub_lon')
-    scope = st.radio('Top 20 selection', ['Filter the overall top 20', 'Top 20 within selected school types and levels'], key='staff_scope')
     a, b = st.columns(2)
     types = a.multiselect('School type', sorted(ranked['Type'].dropna().unique()), default=sorted(ranked['Type'].dropna().unique()), key='staff_types')
     levels = b.multiselect('School level', sorted(ranked['Level'].dropna().unique()), default=sorted(ranked['Level'].dropna().unique()), key='staff_levels')
-    st.caption('Combined grade levels are shown as recorded (for example Elementary-Middle). Overall-top-20 mode keeps the original cohort when filtering; within-selection mode fills up to 20 from the chosen groups. Scenario rank remains the citywide comparison rank.')
-    schools = select_top_schools(ranked, types, levels, scope)
+    st.caption('Combined grade levels are shown as recorded (for example Elementary-Middle). Filters apply before ranking selection: the map fills up to 20 schools from the chosen types and levels. Fewer appear only when fewer than 20 eligible, unserved schools match. Scenario rank remains the citywide comparison rank.')
+    schools = select_top_schools(ranked, types, levels)
     mapped, pairs, matrix = distance_tables(schools, hub_lat, hub_lon)
     threshold = st.slider('Flag school pairs closer than (miles)', 0.1, 3.0, 1.0, 0.1, key='staff_threshold')
     close = pairs[pairs['Miles apart'] < threshold].copy()

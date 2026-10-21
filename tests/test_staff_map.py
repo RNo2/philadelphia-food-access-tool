@@ -19,10 +19,9 @@ class StaffMapTests(unittest.TestCase):
         self.assertEqual(mapped.iloc[0]['Miles from Share (approx.)'], 0)
         self.assertGreater(pairs.iloc[0]['Miles apart'], 0)
 
-    def test_cohort_filter_modes(self):
+    def test_filters_apply_before_top20(self):
         schools = pd.DataFrame({'School ID':range(30),'Type':['District']*20+['Charter']*10,'Level':['High']*30})
-        self.assertTrue(select_top_schools(schools, ['Charter'], ['High'], 'Filter the overall top 20').empty)
-        self.assertEqual(len(select_top_schools(schools, ['Charter'], ['High'], 'Top 20 within selected school types and levels')),10)
+        self.assertEqual(len(select_top_schools(schools, ['Charter'], ['High'])),10)
 
     def test_staff_map_controls(self):
         app = AppTest.from_file(str(ROOT/'app.py'), default_timeout=60).run()
@@ -36,8 +35,6 @@ class StaffMapTests(unittest.TestCase):
         app.multiselect(key='staff_types').set_value(['District']).run()
         self.assertFalse(app.exception)
         self.assertTrue(app.dataframe[0].value['Type'].eq('District').all())
-        app.radio(key='staff_scope').set_value('Top 20 within selected school types and levels').run()
-        self.assertFalse(app.exception)
         self.assertEqual(len(app.dataframe[0].value),20)
         app.slider(key='staff_threshold').set_value(3.0).run()
         self.assertFalse(app.exception)

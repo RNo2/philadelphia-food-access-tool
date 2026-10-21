@@ -116,9 +116,9 @@ or contact records were imported.
 ## Top 20 Staff Map
 
 A separate staff planning page keeps the original Priority Map and Top 15 overview
-unchanged. It shows the overall top 20 under current scenario weights, with school
-type/grade-level filters. The alternate selection mode finds the top 20 within the
-chosen types/levels. Ties retain the existing deterministic order. Labels show
+unchanged. It selects the top 20 within the chosen school types and grade levels under
+current scenario weights. Filters apply before the 20-school limit; fewer schools
+appear only when fewer than 20 eligible, unserved schools match. Ties retain the existing deterministic order. Labels show
 scenario order while tables retain shared-score rank.
 
 Staff can view Share-to-school connections, flag nearby school pairs using an

@@ -18,22 +18,36 @@ class FeatureTests(unittest.TestCase):
         self.app.sidebar.radio[0].set_value(name).run()
         self.assert_ok()
 
-    def test_overview_filters_before_top15(self):
+    def test_overview_filters_before_top25(self):
         self.app.multiselect(key='overview_types').set_value(['District']).run()
         self.assert_ok()
         table = self.app.dataframe[0].value
-        self.assertEqual(len(table), 15)
+        self.assertEqual(len(table), 25)
         self.assertTrue(table['Type'].eq('District').all())
         self.app.multiselect(key='overview_levels').set_value(['Elementary']).run()
         self.assert_ok()
         table = self.app.dataframe[0].value
-        self.assertEqual(len(table), 15)
+        self.assertEqual(len(table), 25)
         self.assertTrue(table['School level'].eq('Elementary').all())
         self.assertEqual(int(self.app.metric[3].value.replace(',', '')), int(table['Enrollment'].sum()))
         self.app.multiselect(key='overview_types').set_value([]).run()
         self.assert_ok()
-        self.assertEqual(len(self.app.dataframe[0].value), 15)
+        self.assertEqual(len(self.app.dataframe[0].value), 25)
         self.assertTrue(self.app.multiselect(key='overview_types').value == [])
+
+    def test_overview_school_count(self):
+        self.assertEqual(len(self.app.dataframe[0].value), 25)
+        self.app.number_input(key='overview_count').set_value(10).run()
+        self.assert_ok()
+        self.assertEqual(len(self.app.dataframe[0].value), 10)
+        self.assertEqual(self.app.metric[3].label, 'Students in Top 10')
+        self.app.multiselect(key='overview_types').set_value(['Charter']).run()
+        self.assert_ok()
+        self.assertEqual(len(self.app.dataframe[0].value), 10)
+        self.assertTrue(self.app.dataframe[0].value['Type'].eq('Charter').all())
+        self.app.number_input(key='overview_count').set_value(30).run()
+        self.assert_ok()
+        self.assertEqual(len(self.app.dataframe[0].value), 30)
 
     def test_directory_filters_and_scenario(self):
         self.page("All Rankable Schools")
@@ -77,7 +91,7 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual(len(self.app.dataframe[0].value), 293)
 
     def test_existing_pages(self):
-        self.assertEqual(len(self.app.dataframe[0].value), 15)
+        self.assertEqual(len(self.app.dataframe[0].value), 25)
         for name in ["Scenario Lab", "School Explorer", "Methodology & Sources", "Analytical Framework"]:
             self.page(name)
 

@@ -148,3 +148,10 @@ calculations wait for explicit budget, school cost, capacity, and participation
 entries. School profiles and two-school comparisons wait for explicit selections.
 Blank location overrides retain the labeled approximate Share pin; blank proximity
 thresholds produce no close-pair flags. User-entered choices persist during a session.
+
+## School display counts
+
+Overview defaults to 25 schools after filtering. Its blank school-count control
+uses 25 until a user enters another count; the table and enrollment metric update
+together. Distance review selects up to 25 after school-type, level, and service
+filters. Fewer results appear only when fewer schools match.

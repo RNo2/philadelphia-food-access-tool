@@ -1,4 +1,4 @@
-"""Top-20 geographic planning, with explicit distance and location assumptions."""
+"""Top-25 geographic planning, with explicit distance and location assumptions."""
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -20,7 +20,7 @@ def miles_between(lat1, lon1, lat2, lon2):
 
 def select_top_schools(ranked, types, levels):
     # Keep deterministic scenario ordering, including tie breakers from the app.
-    return ranked[ranked['Type'].isin(types or ranked['Type'].dropna().unique()) & ranked['Level'].isin(levels or ranked['Level'].dropna().unique())].head(20).copy()
+    return ranked[ranked['Type'].isin(types or ranked['Type'].dropna().unique()) & ranked['Level'].isin(levels or ranked['Level'].dropna().unique())].head(25).copy()
 
 
 def distance_tables(schools, hub_lat, hub_lon):
@@ -48,7 +48,7 @@ def render_staff_map(ranked, all_schools):
     service_filter = st.multiselect('Served Schools', ['Currently served', 'Not listed as currently served'], key='staff_service')
     if service_filter:
         ranked = ranked[ranked['Service status'].isin(service_filter)]
-    st.write('Compare the top 20 expansion priorities, their distances from Share, and schools clustered in the same area. Sidebar scenario weights update the selection.')
+    st.write('Compare the top 25 expansion priorities, their distances from Share, and schools clustered in the same area. Sidebar scenario weights update the selection.')
     st.info('Distances are straight-line miles, not driving routes or travel times. Close schools are review flags, not proof of duplicate service or a reason to exclude a school automatically.')
     with st.expander('Share dispatch location · approximate pin — confirm before route planning'):
         address = st.text_input('Share dispatch address / label', key='staff_hub_address')
@@ -93,19 +93,19 @@ def render_staff_map(ranked, all_schools):
         if not close.empty:
             close['tip'] = close['School A'] + ' ↔ ' + close['School B']
             layers.append(pdk.Layer('LineLayer', close, id='close-school-pairs', get_source_position='source', get_target_position='target', get_color=[235,135,30,210], get_width=4, pickable=True))
-        layers.append(pdk.Layer('ScatterplotLayer', mapped, id='top20-schools', get_position='[Longitude, Latitude]', get_radius=150, radius_min_pixels=10, get_fill_color=[30,105,165,230], pickable=True, auto_highlight=True))
+        layers.append(pdk.Layer('ScatterplotLayer', mapped, id='top25-schools', get_position='[Longitude, Latitude]', get_radius=150, radius_min_pixels=10, get_fill_color=[30,105,165,230], pickable=True, auto_highlight=True))
         layers.append(pdk.Layer('TextLayer', mapped, id='school-labels', get_position='[Longitude, Latitude]', get_text='name_label' if names else 'number', get_size=12, get_pixel_offset=[0,-20], get_color=[225,238,250] if style == 'Dark' else [25,75,125]))
         view_points += mapped[['Longitude','Latitude']].values.tolist()
     view = pdk.data_utils.compute_view(view_points, view_proportion=0.8) if len(view_points)>1 else pdk.ViewState(latitude=hub_lat, longitude=hub_lon, zoom=12)
     st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_provider='carto', map_style={'Street':'road','Light':'light','Dark':'dark'}[style or 'Street'], tooltip={'text':'{tip}', 'style':{'backgroundColor':'#17334d','color':'white'}}), use_container_width=True)
-    st.caption('Red = Share approximate location · Blue = selected schools · Orange lines = close pairs. The Served Schools filter applies before selecting the top 20; blank includes both groups. Scenario ranks and order retain their citywide values. Connections are not roads or service boundaries.')
+    st.caption('Red = Share approximate location · Blue = selected schools · Orange lines = close pairs. The Served Schools filter applies before selecting the top 25; blank includes both groups. Scenario ranks and order retain their citywide values. Connections are not roads or service boundaries.')
     st.subheader('Selected schools and distance from Share')
     table = schools[['Order','Scenario rank','School','Type','Level','School ID','School address','Scenario score','Service status']].merge(mapped[['School ID','Miles from Share (approx.)']], on='School ID', how='left')
     sort = st.selectbox('Sort school list', ['Scenario order', 'Nearest Share', 'Farthest Share'], index=None, key='staff_sort')
     table = table.sort_values('Order' if sort in (None, 'Scenario order') else 'Miles from Share (approx.)', ascending=sort!='Farthest Share', na_position='last')
     st.dataframe(table, hide_index=True, use_container_width=True, column_config={'Miles from Share (approx.)':st.column_config.NumberColumn(format='%.2f')})
     export = table.assign(**{'Share address':address,'Share latitude':hub_lat,'Share longitude':hub_lon,'Distance method':'Straight-line Haversine; approximate Share pin'})
-    st.download_button('Download selected schools and distances', export.to_csv(index=False).encode('utf-8'), 'top20_staff_distances.csv', 'text/csv')
+    st.download_button('Download selected schools and distances', export.to_csv(index=False).encode('utf-8'), 'top25_staff_distances.csv', 'text/csv')
     st.subheader('Schools near one another')
     pair_table = close[['School A','School B','Miles apart']]
     if pair_table.empty:

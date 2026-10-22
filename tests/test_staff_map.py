@@ -19,7 +19,7 @@ class StaffMapTests(unittest.TestCase):
         self.assertEqual(mapped.iloc[0]['Miles from Share (approx.)'], 0)
         self.assertGreater(pairs.iloc[0]['Miles apart'], 0)
 
-    def test_filters_apply_before_top20(self):
+    def test_filters_apply_before_top25(self):
         schools = pd.DataFrame({'School ID':range(30),'Type':['District']*20+['Charter']*10,'Level':['High']*30})
         self.assertEqual(len(select_top_schools(schools, ['Charter'], ['High'])),10)
 
@@ -27,7 +27,7 @@ class StaffMapTests(unittest.TestCase):
         app = AppTest.from_file(str(ROOT/'app.py'), default_timeout=60).run()
         app.sidebar.radio[0].set_value('Distance review').run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
-        self.assertEqual(len(app.dataframe[0].value),20)
+        self.assertEqual(len(app.dataframe[0].value),25)
         service = pd.read_csv(ROOT/'data/served_schools.csv', dtype={'School ID':str})
         served_ids = service.loc[service['Service status'].eq('Currently served'),'School ID']
         self.assertFalse(app.dataframe[0].value['School ID'].isin(served_ids).any())
@@ -35,7 +35,7 @@ class StaffMapTests(unittest.TestCase):
         app.multiselect(key='staff_types').set_value(['District']).run()
         self.assertFalse(app.exception)
         self.assertTrue(app.dataframe[0].value['Type'].eq('District').all())
-        self.assertEqual(len(app.dataframe[0].value),20)
+        self.assertEqual(len(app.dataframe[0].value),25)
         app.number_input(key='staff_threshold').set_value(3.0).run()
         self.assertFalse(app.exception)
         self.assertTrue((app.dataframe[1].value['Miles apart']<3).all())
@@ -44,7 +44,7 @@ class StaffMapTests(unittest.TestCase):
         self.assertFalse(app.exception)
         app.multiselect(key='staff_types').set_value([]).run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
-        self.assertEqual(len(app.dataframe[0].value), 20)
+        self.assertEqual(len(app.dataframe[0].value), 25)
         app.multiselect(key='staff_service').set_value(['Currently served']).run()
         self.assertFalse(app.exception)
         self.assertTrue(app.dataframe[0].value['School ID'].isin(served_ids).all())

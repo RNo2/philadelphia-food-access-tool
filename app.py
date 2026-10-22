@@ -150,19 +150,21 @@ if page == "Overview":
         overview_levels = st.multiselect("School level", sorted(eligible_df["Level"].dropna().unique()), key="overview_levels")
     overview_eligible = eligible_df[eligible_df["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & eligible_df["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
     overview_rankable = rankable[rankable["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & rankable["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
-    top = overview_rankable.head(15).copy()
-    st.caption("Filters apply first, then we select the top 15 matching schools. Metrics reflect your selection; rank and order retain their citywide scenario values. Combined grade levels are listed separately.")
+    count_input = st.number_input("Number of schools to view", min_value=1, max_value=max(25, len(rankable)), value=None, placeholder="25", key="overview_count")
+    count = count_input if count_input is not None else 25
+    top = overview_rankable.head(count).copy()
+    st.caption(f"Filters apply first, then we select the top {count} matching schools. Blank school count defaults to 25. Metrics reflect your selection; rank and order retain their citywide scenario values. Combined grade levels are listed separately.")
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Eligible candidates", f"{len(overview_eligible):,}")
     c2.metric("Rankable now", f"{len(overview_rankable):,}")
     c3.metric("Tier 1 schools", f"{(overview_rankable['Scenario score']>=70).sum():,}")
-    c4.metric("Students in Top 15", f"{int(top['Enrollment'].sum()):,}")
+    c4.metric(f"Students in Top {count}", f"{int(top['Enrollment'].sum()):,}")
 
     st.markdown("### Highest-priority schools")
     if top.empty:
         st.info("No rankable schools match these filters.")
-    elif len(top) < 15:
-        st.caption(f"Showing all {len(top)} matching rankable schools; fewer than 15 match your filters.")
+    elif len(top) < count:
+        st.caption(f"Showing all {len(top)} matching rankable schools; fewer than {count} match your filters.")
     show = top[["Scenario rank","School","Type","Economic %","Enrollment","Effective fresh miles","Effective resources","Scenario score","Tier"]].copy()
     show.columns = ["Rank","School","Type","Economic need","Enrollment","Fresh access (mi)","Resources ≤1mi","Score /85","Priority tier"]
     show["Economic need"] *= 100

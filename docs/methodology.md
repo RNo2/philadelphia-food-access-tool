@@ -14,7 +14,7 @@ $$
 w_k = 85\frac{r_k}{\sum_j r_j}, \qquad S_i = \sum_k w_k\frac{p_{ik}}{M_k}
 $$
 
-Blank weight fields use their baseline values; all-zero entries restore baseline weights. A missing component prevents a complete score. Schools sort by score, economic disadvantage, enrollment, then School ID. Filters apply before selecting the Overview's top 15 or Distance review's top 20; Distance review also applies its Served Schools filter before selecting the top 20. Blank filters leave the pool unrestricted.
+Blank weight fields use their baseline values; all-zero entries restore baseline weights. A missing component prevents a complete score. Schools sort by score, economic disadvantage, enrollment, then School ID. Filters apply before selecting the Overview's requested school count (25 by default) or Distance review's top 25; Distance review also applies its Served Schools filter before selecting the top 25. Blank filters leave the pool unrestricted.
 
 ### 3. Allocate scarce resources
 

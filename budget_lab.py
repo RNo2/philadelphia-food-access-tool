@@ -82,11 +82,14 @@ def render_budget_lab(schools, all_schools):
     st.write("With a limited budget, which schools should outreach reach first? Compare three allocation rules, then collect evidence about what happened.")
     st.info("Planning estimates are not measured benefits. The priority score describes need; enrollment and assumed participation describe potential reach. They do not predict improvements in food security.")
     a, b, c, d = st.columns(4)
-    budget = a.number_input("Available budget ($)", min_value=0.0, value=25000.0, step=1000.0, key="lab_budget")
-    cost = b.number_input("Cost per school per cycle ($)", min_value=1.0, value=1500.0, step=100.0, key="lab_cost")
-    capacity = c.number_input("Maximum schools per cycle", min_value=0, max_value=len(schools), value=min(15, len(schools)), key="lab_capacity")
-    rate = d.slider("Assumed student participation (%)", 0, 100, 25, key="lab_participation")
+    budget = a.number_input("Available budget ($)", min_value=0.0, value=None, step=1000.0, key="lab_budget")
+    cost = b.number_input("Cost per school per cycle ($)", min_value=1.0, value=None, step=100.0, key="lab_cost")
+    capacity = c.number_input("Maximum schools per cycle", min_value=0, max_value=len(schools), value=None, key="lab_capacity")
+    rate = d.number_input("Assumed student participation (%)", min_value=0, max_value=100, value=None, key="lab_participation")
     st.caption("Illustrative inputs, not observed program costs. Each school receives one identical-cost outreach cycle; there are no school-specific costs or travel constraints. Participation is assumed equally across schools. Need-first uses the current sidebar weights. Economically disadvantaged enrollment estimates are not participant counts.")
+    if any(value is None for value in (budget, cost, capacity, rate)):
+        st.info("Enter a budget, cost per school, capacity, and participation assumption to compare allocations.")
+        return
     portfolios, summary = allocate(schools, budget, cost, capacity, rate / 100)
     st.subheader("Compare allocation choices")
     st.dataframe(summary, hide_index=True, use_container_width=True, column_config={
@@ -101,7 +104,10 @@ def render_budget_lab(schools, all_schools):
     else:
         fig = px.scatter(summary, x="Estimated participating students", y="Enrollment-weighted need score", color="Strategy", hover_data=["Schools", "Estimated spend ($)"], title="Potential reach and need under the same budget")
         st.plotly_chart(fig, use_container_width=True)
-    strategy = st.radio("Portfolio to explore", STRATEGIES, horizontal=True, key="lab_strategy")
+    strategy = st.radio("Portfolio to explore", STRATEGIES, horizontal=True, index=None, key="lab_strategy")
+    if strategy is None:
+        st.info("Choose a portfolio strategy to explore schools and record outcomes.")
+        return
     portfolio = portfolios[strategy]
     selected = summary.set_index("Strategy").loc[strategy]
     max_reach = summary["Estimated participating students"].max()

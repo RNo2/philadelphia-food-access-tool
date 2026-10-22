@@ -20,6 +20,8 @@ class ServedSchoolTests(unittest.TestCase):
         app.sidebar.radio[0].set_value('All Rankable Schools').run()
         reference = app.dataframe[0].value.set_index('School ID')
         app.sidebar.radio[0].set_value('Served Schools').run()
+        self.assertEqual(len(app.dataframe[0].value), 18)
+        app.radio[0].set_value('Currently served').run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
         table = app.dataframe[0].value
         self.assertEqual(len(table), 15)
@@ -28,7 +30,7 @@ class ServedSchoolTests(unittest.TestCase):
         kelly = table.set_index('School ID').loc['6470']
         self.assertEqual(kelly['Score /85'], 42)
         self.assertEqual(kelly['School level'], 'Elementary')
-        app.sidebar.slider[0].set_value(60).run()
+        app.sidebar.number_input[0].set_value(60).run()
         self.assertFalse(app.exception)
         self.assertNotEqual(table['Score /85'].tolist(), app.dataframe[0].value['Score /85'].tolist())
         app.radio[0].set_value('Formerly served').run()

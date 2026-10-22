@@ -32,8 +32,8 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual(int(self.app.metric[3].value.replace(',', '')), int(table['Enrollment'].sum()))
         self.app.multiselect(key='overview_types').set_value([]).run()
         self.assert_ok()
-        self.assertTrue(self.app.dataframe[0].value.empty)
-        self.assertEqual(self.app.metric[1].value, '0')
+        self.assertEqual(len(self.app.dataframe[0].value), 15)
+        self.assertTrue(self.app.multiselect(key='overview_types').value == [])
 
     def test_directory_filters_and_scenario(self):
         self.page("All Rankable Schools")
@@ -41,7 +41,7 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual(len(table), 293)
         self.assertTrue({"School type", "School level"}.issubset(table.columns))
         scores = table["Score /85"].tolist()
-        self.app.sidebar.slider[0].set_value(60).run()
+        self.app.sidebar.number_input[0].set_value(60).run()
         self.assert_ok()
         self.assertNotEqual(scores, self.app.dataframe[0].value["Score /85"].tolist())
         self.app.multiselect[1].set_value(["High"]).run()
@@ -60,7 +60,7 @@ class FeatureTests(unittest.TestCase):
         self.assertIn("Food evidence", self.app.dataframe[0].value.columns)
         self.app.multiselect[0].set_value([]).run()
         self.assert_ok()
-        self.assertTrue(self.app.warning)
+        self.assertEqual(len(self.app.dataframe[0].value), 293)
 
     def test_map_controls(self):
         self.page("Priority Map")
@@ -74,8 +74,7 @@ class FeatureTests(unittest.TestCase):
             self.assert_ok()
         self.app.multiselect[0].set_value([]).run()
         self.assert_ok()
-        self.assertTrue(self.app.dataframe[0].value.empty)
-        self.assertTrue(self.app.warning)
+        self.assertEqual(len(self.app.dataframe[0].value), 293)
 
     def test_existing_pages(self):
         self.assertEqual(len(self.app.dataframe[0].value), 15)

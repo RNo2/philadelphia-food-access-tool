@@ -8,13 +8,13 @@ Four indicators capture economic disadvantage, distance to listed fresh food, th
 
 ### 2. Calculate priority
 
-For school i, let pᵢₖ be its imported points and Mₖ the maximum for component k. User-selected slider values rₖ become weights that total 85:
+For school i, let pᵢₖ be its imported points and Mₖ the maximum for component k. User-selected weight values rₖ become weights that total 85:
 
 $$
 w_k = 85\frac{r_k}{\sum_j r_j}, \qquad S_i = \sum_k w_k\frac{p_{ik}}{M_k}
 $$
 
-All-zero sliders restore baseline weights. A missing component prevents a complete score. Schools sort by score, economic disadvantage, enrollment, then School ID. Filters apply before selecting the Overview's top 15 or Distance review's top 20; Distance review also excludes currently served schools.
+Blank weight fields use their baseline values; all-zero entries restore baseline weights. A missing component prevents a complete score. Schools sort by score, economic disadvantage, enrollment, then School ID. Filters apply before selecting the Overview's top 15 or Distance review's top 20; Distance review also applies its Served Schools filter before selecting the top 20. Blank filters leave the pool unrestricted.
 
 ### 3. Allocate scarce resources
 

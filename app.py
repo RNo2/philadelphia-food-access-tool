@@ -91,13 +91,13 @@ def filter_schools(df, key, tier_options=None):
     query = st.text_input("Search school name, ZIP, or School ID", key=key + "_search")
     a, b, c = st.columns(3)
     with a:
-        types = st.multiselect("School type", sorted(df["Type"].dropna().unique()), default=sorted(df["Type"].dropna().unique()), key=key + "_types")
+        types = st.multiselect("School type", sorted(df["Type"].dropna().unique()), key=key + "_types")
     with b:
-        levels = st.multiselect("School level", sorted(df["Level"].dropna().unique()), default=sorted(df["Level"].dropna().unique()), key=key + "_levels")
+        levels = st.multiselect("School level", sorted(df["Level"].dropna().unique()), key=key + "_levels")
     with c:
         options = tier_options if tier_options is not None else sorted(df["Tier"].unique())
-        tiers = st.multiselect("Priority tier", options, default=options, key=key + "_tiers")
-    out = df[df["Type"].isin(types) & df["Level"].isin(levels) & df["Tier"].isin(tiers)]
+        tiers = st.multiselect("Priority tier", options, key=key + "_tiers")
+    out = df[pd.Series(True, index=df.index) & (df["Type"].isin(types) if types else True) & (df["Level"].isin(levels) if levels else True) & (df["Tier"].isin(tiers) if tiers else True)]
     if query.strip():
         match = pd.Series(False, index=out.index)
         for column in ["School", "ZIP", "School ID"]:
@@ -130,12 +130,12 @@ eligible_df = all_df[(all_df["Eligible"].astype(str).str.lower() == "yes") & (al
 
 # Shared scenario controls
 with st.sidebar.expander("Scenario weights", expanded=(page == "Scenario Lab")):
-    st.caption("Change relative importance. We normalize the four values back to an 85-point scale.")
-    e = st.slider("Economic need", 0, 60, 30, 1)
-    f = st.slider("Fresh food access", 0, 60, 25, 1)
-    r = st.slider("Existing-resource gap", 0, 60, 25, 1)
-    p = st.slider("Potential reach", 0, 30, 5, 1)
-raw_w = {"Economic need":float(e), "Fresh food access":float(f), "Resource gap":float(r), "Potential reach":float(p)}
+    st.caption("Blank weights use baseline values (30, 25, 25, 5). Enter values to adjust relative importance; weights normalize to 85 points. Empty filters show all schools.")
+    e = st.number_input("Economic need", min_value=0, max_value=60, value=None, key="weight_e")
+    f = st.number_input("Fresh food access", min_value=0, max_value=60, value=None, key="weight_f")
+    r = st.number_input("Existing-resource gap", min_value=0, max_value=60, value=None, key="weight_r")
+    p = st.number_input("Potential reach", min_value=0, max_value=30, value=None, key="weight_p")
+raw_w = {"Economic need":float(e if e is not None else 30), "Fresh food access":float(f if f is not None else 25), "Resource gap":float(r if r is not None else 25), "Potential reach":float(p if p is not None else 5)}
 w = normalize_weights(raw_w)
 ranked = apply_scenario(eligible_df, w)
 ranked["Order"] = range(1, len(ranked) + 1)
@@ -145,11 +145,11 @@ if page == "Overview":
     st.markdown('<div class="hero"><div class="kicker">Applied Economics · Food Access · Resource Allocation</div><h1>Philadelphia School Food Access Priority Tool</h1><p>A transparent decision-support model for identifying schools where fresh-food outreach may have the greatest need. The tool combines economic disadvantage, geographic fresh-food access, nearby food resources, and potential student reach.</p></div>', unsafe_allow_html=True)
     f1, f2 = st.columns(2)
     with f1:
-        overview_types = st.multiselect("School type", sorted(eligible_df["Type"].dropna().unique()), default=sorted(eligible_df["Type"].dropna().unique()), key="overview_types")
+        overview_types = st.multiselect("School type", sorted(eligible_df["Type"].dropna().unique()), key="overview_types")
     with f2:
-        overview_levels = st.multiselect("School level", sorted(eligible_df["Level"].dropna().unique()), default=sorted(eligible_df["Level"].dropna().unique()), key="overview_levels")
-    overview_eligible = eligible_df[eligible_df["Type"].isin(overview_types) & eligible_df["Level"].isin(overview_levels)]
-    overview_rankable = rankable[rankable["Type"].isin(overview_types) & rankable["Level"].isin(overview_levels)]
+        overview_levels = st.multiselect("School level", sorted(eligible_df["Level"].dropna().unique()), key="overview_levels")
+    overview_eligible = eligible_df[eligible_df["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & eligible_df["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
+    overview_rankable = rankable[rankable["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & rankable["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
     top = overview_rankable.head(15).copy()
     st.caption("Filters apply first, then we select the top 15 matching schools. Metrics reflect your selection; rank and order retain their citywide scenario values. Combined grade levels are listed separately.")
     c1,c2,c3,c4 = st.columns(4)
@@ -210,8 +210,8 @@ elif page == "Served Schools":
     b.metric("Formerly served schools", int((served["Service status"] == "Formerly served").sum()))
     c.metric("Current schools with a scenario rank", int(active["Scenario rank"].notna().sum()))
     d.metric("Enrollment at current schools", fmt_num(active["Enrollment"].sum()))
-    status = st.radio("Service group", ["Currently served", "Formerly served", "All listed schools"], horizontal=True)
-    subset = served if status == "All listed schools" else served[served["Service status"] == status]
+    status = st.radio("Service group", ["Currently served", "Formerly served", "All listed schools"], horizontal=True, index=None)
+    subset = served if status in (None, "All listed schools") else served[served["Service status"] == status]
     unmatched = subset[subset["_merge"] == "left_only"]
     if not unmatched.empty:
         st.warning("These source schools could not be matched; no rank or score has been inferred.")
@@ -219,7 +219,7 @@ elif page == "Served Schools":
     matched = served[served["_merge"] == "both"].copy()
     st.caption("Former service comes from the sheet’s ‘No longer serving’ section. Enrollment and need values come from the model snapshot, not the service sheet. Service status does not demonstrate an improvement in food security.")
     choices = filter_schools(matched, "served", [tier(85), tier(60), tier(45), tier(0), "Missing data"])
-    if status != "All listed schools":
+    if status not in (None, "All listed schools"):
         choices = choices[choices["Service status"] == status]
     choices = choices.sort_values(["Scenario rank", "School"], na_position="last")
     table = choices[["Scenario rank", "School", "Type", "Level", "School ID", "ZIP", "School address", "Enrollment", "Economic %", "Scenario score", "Tier", "Service status", "Effective fresh miles", "Effective resources", "Food evidence", "Rationale", "Review row"]].rename(columns={"Type": "School type", "Level": "School level", "Economic %": "Economic need", "Scenario score": "Score /85", "Effective fresh miles": "Fresh miles", "Effective resources": "Resources ≤1mi", "Rationale": "Why it needs attention"})
@@ -264,18 +264,20 @@ elif page == "Food Resources":
         st.warning("No schools match these filters.")
     else:
         school_id = st.selectbox("School evidence profile", schools["School ID"].tolist(),
-                                 format_func=lambda sid: schools.set_index("School ID").loc[sid, "School"] + " · " + sid)
-        row = schools.set_index("School ID").loc[school_id]
-        st.write(f"**{row['School']}** · {row['Level']} · {row['Type']} · ZIP {row['ZIP']}")
-        for label, field in [("Nearest listed supermarket", "Nearest supermarket"), ("Retailer address", "Retailer address"), ("Fresh-food evidence basis", "Fresh basis"), ("Resource evidence basis", "Resource basis"), ("Food evidence", "Food evidence")]:
-            st.write(f"**{label}:** {row[field] if pd.notna(row[field]) else 'Not recorded'}")
-        render_food_sites(row, "food_profile_sites")
+                                 index=None, format_func=lambda sid: schools.set_index("School ID").loc[sid, "School"] + " · " + sid)
+        if school_id is not None:
+            row = schools.set_index("School ID").loc[school_id]
+            st.write(f"**{row['School']}** · {row['Level']} · {row['Type']} · ZIP {row['ZIP']}")
+            for label, field in [("Nearest listed supermarket", "Nearest supermarket"), ("Retailer address", "Retailer address"), ("Fresh-food evidence basis", "Fresh basis"), ("Resource evidence basis", "Resource basis"), ("Food evidence", "Food evidence")]:
+                st.write(f"**{label}:** {row[field] if pd.notna(row[field]) else 'Not recorded'}")
+            render_food_sites(row, "food_profile_sites")
 
 elif page == "Priority Map":
     st.title("Priority Map")
     st.write("Filter all rankable schools, explore their priority and food-access context, and focus on an individual school.")
     schools = filter_schools(rankable, "map")
-    min_econ = st.slider("Minimum economic need", 0, 100, 0, 5)
+    min_econ_input = st.number_input("Minimum economic need (%)", min_value=0, max_value=100, value=None)
+    min_econ = min_econ_input if min_econ_input is not None else 0
     schools = schools[schools["Economic %"] >= min_econ / 100].copy()
     valid = schools["Latitude"].between(-90, 90) & schools["Longitude"].between(-180, 180)
     m = schools[valid].copy()
@@ -287,10 +289,10 @@ elif page == "Priority Map":
     if m.empty:
         st.warning("No schools with valid coordinates match these filters. Adjust the filters to show schools.")
     else:
-        focus = st.selectbox("Focus on a school", [""] + m["School ID"].tolist(),
+        focus = st.selectbox("Focus on a school", m["School ID"].tolist(), index=None,
                              format_func=lambda sid: "All filtered schools" if not sid else m.set_index("School ID").loc[sid, "School"] + " · " + sid)
         labels = st.checkbox("Show school names", value=False)
-        style = st.selectbox("Map background", ["Light", "Dark", "Street"])
+        style = st.selectbox("Map background", ["Light", "Dark", "Street"], index=None)
         colors = {"Tier 1 — Highest Priority": [39,105,70,210], "Tier 2 — High Priority": [128,113,27,210], "Tier 3 — Moderate Priority": [181,111,28,210], "Tier 4 — Lower Priority": [110,110,110,210]}
         m["color"] = m["Tier"].map(colors)
         m["radius"] = 90 + m["Scenario score"] * 4
@@ -314,7 +316,7 @@ elif page == "Priority Map":
             view = pdk.data_utils.compute_view(m[["Longitude", "Latitude"]], view_proportion=0.85) if len(m) > 1 else pdk.ViewState(latitude=float(m.iloc[0]["Latitude"]), longitude=float(m.iloc[0]["Longitude"]), zoom=13)
         tooltip = {"html": "<b>{school_label}</b><br/>{level_label} · {type_label}<br/>{address_label}<br/>{tier_label}<br/>Score: {score_label}<br/>Economic need: {econ_label}<br/>Fresh access: {fresh_label} mi<br/>Resources within 1 mi: {resource_label}<br/>Nearest listed supermarket: {supermarket_label}", "style": {"backgroundColor": "#17201A", "color": "white"}}
         styles = {"Light": "light", "Dark": "dark", "Street": "road"}
-        st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style=styles[style]), use_container_width=True)
+        st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style=styles[style or "Light"]), use_container_width=True)
         st.caption("Pan and zoom to explore; hover over a marker for school and food-access details. Map backgrounds require internet access. See Food Resources or School Explorer for nearby food-site listings from the workbook snapshot; consult providers for current availability.")
     school_table(schools, "mapped_school_selection.csv")
 
@@ -330,10 +332,11 @@ elif page == "Scenario Lab":
     wc = st.columns(4)
     for col,(name,val) in zip(wc,w.items()): col.metric(name, f"{val:.1f} pts")
 
-    capacity = st.slider("Outreach capacity this cycle (schools)", 1, 50, 15)
+    capacity_input = st.number_input("Outreach capacity this cycle (schools)", min_value=0, max_value=50, value=None)
+    capacity = capacity_input if capacity_input is not None else 0
     portfolio = rankable.head(capacity)
     a,b,c,d = st.columns(4)
-    a.metric("Schools selected", capacity)
+    a.metric("Schools selected", len(portfolio))
     b.metric("Potential student reach", f"{int(portfolio['Enrollment'].sum()):,}")
     c.metric("Avg. economic need", f"{portfolio['Economic %'].mean():.0%}")
     d.metric("Avg. priority score", f"{portfolio['Scenario score'].mean():.1f}/85")
@@ -361,33 +364,34 @@ elif page == "School Explorer":
     if choices.empty:
         st.warning("No matching eligible school found.")
     else:
-        selected = st.selectbox("School", choices["School"].tolist())
-        row = rankable[rankable["School"]==selected].iloc[0]
-        st.markdown(f"## {selected}")
-        st.caption(f"{row['Type']} · {row['Level']} · ZIP {row['ZIP']} · School ID {row['School ID']}")
-        m1,m2,m3,m4 = st.columns(4)
-        m1.metric("Scenario rank", f"#{int(row['Scenario rank'])}")
-        m2.metric("Priority score", f"{row['Scenario score']:.1f}/85")
-        m3.metric("Economic need", fmt_pct(row['Economic %']))
-        m4.metric("Enrollment", fmt_num(row['Enrollment']))
-        left,right = st.columns([1,1])
-        with left:
-            st.markdown("### Access context")
-            st.write(f"**Fresh-food access:** {fmt_num(row['Effective fresh miles'],2)} miles to nearest listed qualifying source")
-            st.write(f"**Nearby food resources:** {fmt_num(row['Effective resources'])} within 1 mile")
-            st.write(f"**Nearest listed supermarket:** {row['Nearest supermarket'] if pd.notna(row['Nearest supermarket']) else '—'}")
-            st.write(f"**Retailer address:** {row['Retailer address'] if pd.notna(row['Retailer address']) else '—'}")
-            st.write(f"**School address:** {row['School address'] if pd.notna(row['School address']) else '—'}")
-            st.info("Listed access does not establish produce quality, affordability, walkability, hours, recurrence, or household eligibility. Verify before commitment.")
-        with right:
-            labels=["Economic need","Fresh food access","Resource gap","Potential reach"]
-            vals=[row['Economic points']/30*100,row['Fresh points']/25*100,row['Resource points']/25*100,row['Reach points']/5*100]
-            fig=go.Figure(go.Bar(x=vals,y=labels,orientation='h',text=[f"{v:.0f}%" for v in vals],textposition='auto'))
-            fig.update_layout(title="Rubric strength by component",xaxis=dict(range=[0,100],title="Share of maximum component points"),yaxis_title=None,height=320,margin=dict(l=10,r=10,t=50,b=25))
-            st.plotly_chart(fig,use_container_width=True)
-        render_food_sites(row, "explorer_food_sites")
-        st.markdown("### Why it ranks here")
-        st.markdown(f'<div class="card">{row["Rationale"]}</div>', unsafe_allow_html=True)
+        selected = st.selectbox("School", choices["School"].tolist(), index=None)
+        if selected is not None:
+            row = rankable[rankable["School"]==selected].iloc[0]
+            st.markdown(f"## {selected}")
+            st.caption(f"{row['Type']} · {row['Level']} · ZIP {row['ZIP']} · School ID {row['School ID']}")
+            m1,m2,m3,m4 = st.columns(4)
+            m1.metric("Scenario rank", f"#{int(row['Scenario rank'])}")
+            m2.metric("Priority score", f"{row['Scenario score']:.1f}/85")
+            m3.metric("Economic need", fmt_pct(row['Economic %']))
+            m4.metric("Enrollment", fmt_num(row['Enrollment']))
+            left,right = st.columns([1,1])
+            with left:
+                st.markdown("### Access context")
+                st.write(f"**Fresh-food access:** {fmt_num(row['Effective fresh miles'],2)} miles to nearest listed qualifying source")
+                st.write(f"**Nearby food resources:** {fmt_num(row['Effective resources'])} within 1 mile")
+                st.write(f"**Nearest listed supermarket:** {row['Nearest supermarket'] if pd.notna(row['Nearest supermarket']) else '—'}")
+                st.write(f"**Retailer address:** {row['Retailer address'] if pd.notna(row['Retailer address']) else '—'}")
+                st.write(f"**School address:** {row['School address'] if pd.notna(row['School address']) else '—'}")
+                st.info("Listed access does not establish produce quality, affordability, walkability, hours, recurrence, or household eligibility. Verify before commitment.")
+            with right:
+                labels=["Economic need","Fresh food access","Resource gap","Potential reach"]
+                vals=[row['Economic points']/30*100,row['Fresh points']/25*100,row['Resource points']/25*100,row['Reach points']/5*100]
+                fig=go.Figure(go.Bar(x=vals,y=labels,orientation='h',text=[f"{v:.0f}%" for v in vals],textposition='auto'))
+                fig.update_layout(title="Rubric strength by component",xaxis=dict(range=[0,100],title="Share of maximum component points"),yaxis_title=None,height=320,margin=dict(l=10,r=10,t=50,b=25))
+                st.plotly_chart(fig,use_container_width=True)
+            render_food_sites(row, "explorer_food_sites")
+            st.markdown("### Why it ranks here")
+            st.markdown(f'<div class="card">{row["Rationale"]}</div>', unsafe_allow_html=True)
 
 elif page == "Methodology & Sources":
     st.markdown('<div class="hero"><div class="kicker">Transparency</div><h1>Methodology & Sources</h1><p>The model is intentionally simple enough for staff to audit. Each component is scored from observable indicators, then combined into an 85-point priority score.</p></div>', unsafe_allow_html=True)

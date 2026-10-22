@@ -123,9 +123,10 @@ scenario order while tables retain shared-score rank.
 
 Staff can view Share-to-school connections, flag nearby school pairs using an
 adjustable threshold, compare any two schools, inspect the full distance grid,
-sort by distance from Share, and download school and pair-distance CSVs. Currently served schools from the supplied service crosswalk are excluded before
-selecting the top 20 on this page, including from pair comparisons and exports.
-Other pages retain their existing candidate pools. School hover labels show only
+sort by distance from Share, and download school and pair-distance CSVs. A blank Served Schools filter includes both currently served schools from the
+supplied crosswalk and schools not listed as currently served. Selecting either
+group applies that restriction before the top-20 limit, distance comparisons,
+and exports. Other pages retain their existing candidate pools. School hover labels show only
 the school name.
 
 The confirmed dispatch address is 2901 W. Hunting Park Avenue, Philadelphia, PA
@@ -137,3 +138,13 @@ travel times, service catchments, or evidence of duplicated benefits. Invalid sc
 coordinates are flagged and excluded only from geographic calculations. Map tiles
 require browser internet access. This page has no access restriction; it is part of
 the existing public app.
+
+## Blank input defaults
+
+All input/filter boxes start blank in a fresh session. Empty school filters mean
+no restriction; selections apply before top-N limits. Blank scenario-weight inputs
+use the documented baseline values without pre-populating the boxes. Budget
+calculations wait for explicit budget, school cost, capacity, and participation
+entries. School profiles and two-school comparisons wait for explicit selections.
+Blank location overrides retain the labeled approximate Share pin; blank proximity
+thresholds produce no close-pair flags. User-entered choices persist during a session.

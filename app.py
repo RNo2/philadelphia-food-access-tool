@@ -415,6 +415,12 @@ elif page == "Methodology & Sources":
     links=src[src['Setting'].astype(str).str.contains('URL',case=False,na=False)].copy()
     if not links.empty:
         st.dataframe(links.rename(columns={"Setting":"Source","Value":"URL"}),use_container_width=True,hide_index=True)
+    st.markdown("### Original master workbook")
+    st.write("Download the original Excel model supplied as the foundation for this app, including its ranking, school-profile, and source-data worksheets.")
+    st.caption("SBD_Expansion_Model_Final-draft_026.xlsx · Original file as supplied. This download is a reference workbook; the app uses its saved data snapshots and does not automatically import changes from this file.")
+    workbook = BASE / "data" / "SBD_Expansion_Model_Final-draft_026.xlsx"
+    st.download_button("Download original master Excel workbook", workbook.read_bytes(), file_name=workbook.name,
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     st.markdown("### Important limitations")
     st.markdown("""
 - Geographic proximity is a screening proxy, not proof of affordable or practical access.

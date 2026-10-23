@@ -1,6 +1,4 @@
 """Page-specific decorative backgrounds with native scroll motion."""
-import base64
-from pathlib import Path
 import streamlit as st
 
 PAGE_ART = {
@@ -18,14 +16,8 @@ PAGE_ART = {
 }
 
 
-@st.cache_data
-def _encoded_artwork(path, modified_ns):
-    return base64.b64encode(Path(path).read_bytes()).decode('ascii')
-
-
-def artwork_data(name):
-    path = Path(__file__).resolve().parent / 'assets' / f'page-{name}.png'
-    return _encoded_artwork(str(path), path.stat().st_mtime_ns)
+def artwork_url(name):
+    return f"app/static/page-{name}.png"
 
 
 def render_page_background(page):
@@ -36,7 +28,7 @@ def render_page_background(page):
         '<style>'
         f'{selector} [data-testid="stMain"]' + '{'
         'background-color:#fff;'
-        f'background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url("data:image/png;base64,{artwork_data(name)}");'
+        f'background-image:linear-gradient(rgba(255,255,255,.80),rgba(255,255,255,.80)),url("{artwork_url(name)}");'
         'background-size:100% auto;background-position:center top;background-attachment:local;background-repeat:repeat-y;'
         '}'
         f'{selector} [data-testid="stMain"] [data-testid="stDataFrame"],{selector} [data-testid="stMain"] [data-testid="stPlotlyChart"],'

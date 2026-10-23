@@ -72,7 +72,7 @@ def render_spacing_results(decisions, pairs, minimum_miles, weights):
     st.caption(f'Applies to the currently filtered top 25 only. Schools at or within {minimum_miles:g} straight-line miles cannot both be recommended. This tool does not refill the list from outside the displayed group.')
     st.write('We consider schools in rubric-priority order: scenario score, economic disadvantage, enrollment, then School ID. Keep the highest-priority school, then keep each next school only if it clears every already recommended school. This favors priority; it does not guarantee the largest possible number of schools or maximum total score.')
     cols = ['School', 'School ID', 'Scenario score', 'Type', 'Level', 'Decision', 'Reason / conflicting recommended schools']
-    st.dataframe(decisions[cols], hide_index=True, use_container_width=True)
+    st.dataframe(decisions[cols], hide_index=True, width="stretch")
     recommended = decisions[decisions['Decision'].eq('Recommend')]
     st.success(f'{len(recommended)} schools recommended; {int(decisions["Decision"].eq("Leave out").sum())} left out because of spacing.')
     if decisions['Decision'].eq('Needs coordinate review').any():
@@ -93,7 +93,7 @@ def render_spacing_results(decisions, pairs, minimum_miles, weights):
         st.info('No school pairs violate this spacing rule in the displayed group.')
     else:
         st.caption('Both schools appear with their current weighted rubric contributions. A pair can have both schools left out if each conflicts with a different recommended school; use the decision reasons to trace the complete shortlist. Economic % is displayed on a 0–100 scale.')
-    st.dataframe(comparison, hide_index=True, use_container_width=True, column_config={'Miles apart': st.column_config.NumberColumn(format='%.2f')})
+    st.dataframe(comparison, hide_index=True, width="stretch", column_config={'Miles apart': st.column_config.NumberColumn(format='%.2f')})
     st.download_button('Download pair-by-pair rubric comparisons', comparison.to_csv(index=False).encode('utf-8'), 'spacing_rubric_comparisons.csv', 'text/csv')
 
 def render_staff_map(ranked, all_schools, weights):
@@ -130,7 +130,7 @@ def render_staff_map(ranked, all_schools, weights):
     st.caption('Enter a distance threshold to highlight close school pairs; blank means no proximity flags.')
     close = pairs[pairs['Miles apart'] < threshold].copy()
     a, b, c = st.columns(3)
-    a.metric('Schools selected', len(schools))
+    a.metric('Schools in review', len(schools))
     b.metric('School pairs flagged', len(close))
     c.metric('Schools missing valid coordinates', len(schools)-len(mapped))
     if len(schools) != len(mapped):
@@ -161,21 +161,23 @@ def render_staff_map(ranked, all_schools, weights):
         layers.append(pdk.Layer('TextLayer', mapped, id='school-labels', get_position='[Longitude, Latitude]', get_text='name_label' if names else 'number', get_size=12, get_pixel_offset=[0,-20], get_color=[225,238,250] if style == 'Dark' else [25,75,125]))
         view_points += mapped[['Longitude','Latitude']].values.tolist()
     view = pdk.data_utils.compute_view(view_points, view_proportion=0.8) if len(view_points)>1 else pdk.ViewState(latitude=hub_lat, longitude=hub_lon, zoom=12)
-    st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_provider='carto', map_style={'Street':'road','Light':'light','Dark':'dark'}[style or 'Street'], tooltip={'text':'{tip}', 'style':{'backgroundColor':'#17334d','color':'white'}}), use_container_width=True)
+    st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_provider='carto', map_style={'Street':'road','Light':'light','Dark':'dark'}[style or 'Street'], tooltip={'text':'{tip}', 'style':{'backgroundColor':'#17334d','color':'white'}}), width="stretch")
     marker_legend = 'Green = spacing recommendation · Gray = left out' if decisions is not None else 'Blue = selected schools'
     st.caption(f'Red = Share approximate location · {marker_legend} · Orange lines = close pairs. The Served Schools filter applies before selecting the top 25; blank includes both groups. Scenario ranks and order retain their citywide values. Connections are not roads or service boundaries.')
-    st.subheader('Selected schools and distance from Share')
+    st.subheader('Schools in this review')
     table = schools[['Order','Scenario rank','School','Type','Level','School ID','School address','Scenario score','Service status']].merge(mapped[['School ID','Miles from Share (approx.)']], on='School ID', how='left')
     sort = st.selectbox('Sort school list', ['Scenario order', 'Nearest Share', 'Farthest Share'], index=None, key='staff_sort')
     table = table.sort_values('Order' if sort in (None, 'Scenario order') else 'Miles from Share (approx.)', ascending=sort!='Farthest Share', na_position='last')
-    st.dataframe(table, hide_index=True, use_container_width=True, column_config={'Miles from Share (approx.)':st.column_config.NumberColumn(format='%.2f')})
+    st.dataframe(table, hide_index=True, width="stretch", column_config={'Miles from Share (approx.)':st.column_config.NumberColumn(format='%.2f')})
     export = table.assign(**{'Share address':address,'Share latitude':hub_lat,'Share longitude':hub_lon,'Distance method':'Straight-line Haversine; approximate Share pin'})
     st.download_button('Download selected schools and distances', export.to_csv(index=False).encode('utf-8'), 'top25_staff_distances.csv', 'text/csv')
     st.subheader('Schools near one another')
     pair_table = close[['School A','School B','Miles apart']]
-    if pair_table.empty:
+    if threshold_input is None:
+        st.info('Enter a proximity threshold above to list nearby school pairs.')
+    elif pair_table.empty:
         st.info('No selected school pairs fall below this distance threshold.')
-    st.dataframe(pair_table, hide_index=True, use_container_width=True, column_config={'Miles apart':st.column_config.NumberColumn(format='%.2f')})
+    st.dataframe(pair_table, hide_index=True, width="stretch", column_config={'Miles apart':st.column_config.NumberColumn(format='%.2f')})
     st.download_button('Download all pairwise school distances', pairs[['School A','School B','School ID A','School ID B','Miles apart']].to_csv(index=False).encode('utf-8'), 'school_pair_distances.csv', 'text/csv')
     if len(mapped)>1:
         st.subheader('Compare any two selected schools')
@@ -191,7 +193,7 @@ def render_staff_map(ranked, all_schools, weights):
             labels = mapped['Order'].astype(str) + ' · ' + mapped['School']
             fig = px.imshow(matrix, x=labels, y=labels, color_continuous_scale='Blues_r', labels={'color':'Miles'}, aspect='auto')
             fig.update_traces(hovertemplate='%{y}<br>%{x}<br>%{z:.2f} mi<extra></extra>')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     if decisions is not None:
         st.caption('Spacing colors: green = recommended; gray = left out. Hover labels remain school names only.')

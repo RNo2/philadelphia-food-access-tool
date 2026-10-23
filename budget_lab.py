@@ -3,6 +3,7 @@ import math
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from presentation import export_with_context
 
 STRATEGIES = ["Need first", "Student reach first", "Economic disadvantage first"]
 OUTCOME_COLUMNS = ["School ID", "School", "Actual cost ($)", "Students served", "Paired survey responses", "Food insecure before", "Food insecure after", "Notes"]
@@ -77,10 +78,27 @@ def validate_outcomes(frame, schools):
     return result
 
 
-def render_budget_lab(schools, all_schools):
+def render_budget_lab(schools, all_schools, weights, snapshot):
     st.title("Budget & Allocation Lab")
     st.write("With a limited budget, which schools should outreach reach first? Compare three allocation rules, then collect evidence about what happened.")
     st.info("Planning estimates are not measured benefits. The priority score describes need; enrollment and assumed participation describe potential reach. They do not predict improvements in food security.")
+    types_col, levels_col, service_col = st.columns(3)
+    types = types_col.multiselect("School type", sorted(schools["Type"].dropna().unique()), key="lab_types")
+    levels = levels_col.multiselect("School level", sorted(schools["Level"].dropna().unique()), key="lab_levels")
+    statuses = service_col.multiselect("Service status", sorted(schools["Service status"].dropna().unique()), key="lab_service")
+    candidates = schools[schools["Type"].isin(types or schools["Type"].dropna().unique()) & schools["Level"].isin(levels or schools["Level"].dropna().unique()) & schools["Service status"].isin(statuses or schools["Service status"].dropna().unique())]
+    st.caption(f"{len(candidates):,} matching candidates · Empty filters include all groups. Current service status comes from the supplied service list, not inferred from need scores.")
+    plan_tab, outcome_tab = st.tabs(["Plan an allocation", "Record observed outcomes"])
+    with plan_tab:
+        portfolio = render_allocation_plan(candidates, weights, snapshot)
+    with outcome_tab:
+        render_outcome_log(portfolio if portfolio is not None else candidates.head(0), all_schools)
+
+
+def render_allocation_plan(schools, weights, snapshot):
+    if schools.empty:
+        st.info("No candidates match these filters. Clear a filter to build a plan.")
+        return None
     a, b, c, d = st.columns(4)
     budget = a.number_input("Available budget ($)", min_value=0.0, value=None, step=1000.0, key="lab_budget")
     cost = b.number_input("Cost per school per cycle ($)", min_value=1.0, value=None, step=100.0, key="lab_cost")
@@ -92,18 +110,20 @@ def render_budget_lab(schools, all_schools):
         return
     portfolios, summary = allocate(schools, budget, cost, capacity, rate / 100)
     st.subheader("Compare allocation choices")
-    st.dataframe(summary, hide_index=True, use_container_width=True, column_config={
+    st.dataframe(summary, hide_index=True, width="stretch", column_config={
         "Estimated spend ($)": st.column_config.NumberColumn(format="$%.2f"),
         "Unallocated budget ($)": st.column_config.NumberColumn(format="$%.2f"),
         "Estimated participating students": st.column_config.NumberColumn(format="%.1f"),
         "Economically disadvantaged enrollment estimate": st.column_config.NumberColumn(format="%.1f"),
         "Enrollment-weighted need score": st.column_config.NumberColumn(format="%.1f"),
     })
+    summary_export = summary.assign(**{"Budget ($)":budget, "School cost ($)":cost, "School capacity":capacity, "Assumed participation (%)":rate, "Candidate schools":len(schools)})
+    st.download_button("Download allocation comparison", export_with_context(summary_export, weights, snapshot), "allocation_comparison.csv", "text/csv")
     if summary["Schools"].max() == 0:
         st.warning("No schools can be funded with these inputs. Increase the budget or capacity, or reduce the cost per school.")
     else:
         fig = px.scatter(summary, x="Estimated participating students", y="Enrollment-weighted need score", color="Strategy", hover_data=["Schools", "Estimated spend ($)"], title="Potential reach and need under the same budget")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     strategy = st.radio("Portfolio to explore", STRATEGIES, horizontal=True, index=None, key="lab_strategy")
     if strategy is None:
         st.info("Choose a portfolio strategy to explore schools and record outcomes.")
@@ -114,21 +134,33 @@ def render_budget_lab(schools, all_schools):
     st.write(f"**Reach opportunity cost:** this choice has {max_reach - selected['Estimated participating students']:,.1f} fewer estimated participating students than the reach-first allocation. This is a model tradeoff, not a loss of proven benefit.")
     other = portfolios["Student reach first"]
     st.caption(f"{len(set(portfolio['School ID']) & set(other['School ID']))} schools overlap with the reach-first portfolio. Unallocated funds reflect whole-school cost, capacity, or the candidate limit.")
+    if "Service status" in portfolio:
+        served_count = int(portfolio["Service status"].eq("Currently served").sum())
+        if served_count:
+            st.caption(f"{served_count} schools in this portfolio are listed as currently served. Use the service-status filter to focus an expansion-only plan.")
     columns = ["School ID", "School", "Type", "Level", "Scenario score", "Enrollment", "Economic %", "Estimated participating students", "Estimated school cost ($)", "Effective fresh miles", "Effective resources", "Food evidence", "Rationale", "Review row"]
+    if "Service status" in portfolio:
+        columns.append("Service status")
     display = portfolio[columns].copy()
     display["Economic %"] *= 100
-    st.dataframe(display, hide_index=True, use_container_width=True, column_config={"Economic %": st.column_config.NumberColumn(format="%.1f%%")})
+    st.dataframe(display, hide_index=True, width="stretch", column_config={"Economic %": st.column_config.NumberColumn(format="%.1f%%")})
     export = display.assign(Strategy=strategy, **{"Budget ($)": budget, "School capacity": capacity, "Assumed participation (%)": rate})
-    st.download_button("Download allocation and assumptions", export.to_csv(index=False).encode("utf-8"), "budget_allocation.csv", "text/csv")
+    st.download_button("Download allocation and assumptions", export_with_context(export, weights, snapshot), "budget_allocation.csv", "text/csv")
 
+    return portfolio
+
+
+def render_outcome_log(portfolio, all_schools):
     st.subheader("Build evidence about actual benefit")
     st.write("Track one evaluation cycle at a time: actual spending, unique students served, and food insecurity before and after among the same survey respondents. Use the same question and follow-up interval across schools.")
     st.caption("Enter aggregate counts only. Keep names and student-level records out of this log. Entries last only for this session; download your CSV to retain them and upload it next time.")
     template = outcome_template(portfolio)
+    if portfolio.empty:
+        st.caption("No planning portfolio is selected. You can upload an existing outcome CSV or enter school IDs directly; planning assumptions are not required to review actual outcomes.")
     st.download_button("Download blank outcome template", template.to_csv(index=False).encode("utf-8"), "school_outcomes.csv", "text/csv")
     upload = st.file_uploader("Load an outcome CSV for one evaluation cycle", type=["csv"], key="lab_outcome_upload")
     with st.form("lab_outcome_form"):
-        edited = st.data_editor(st.session_state.get("lab_outcomes", outcome_template(schools.head(0))), num_rows="dynamic", disabled=["School"], hide_index=True, use_container_width=True)
+        edited = st.data_editor(st.session_state.get("lab_outcomes", outcome_template(all_schools.head(0))), num_rows="dynamic", disabled=["School"], hide_index=True, width="stretch")
         save = st.form_submit_button("Calculate observed outcomes")
     if upload is not None and st.button("Import uploaded outcomes"):
         try:

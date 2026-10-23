@@ -63,7 +63,7 @@ def render_food_sites(row, key):
         )
         with st.expander('Source details and access restrictions'):
             st.caption('From SBD_Expansion_Model_10.20.2026.xlsx; source retrieved October 9, 2026. Active City Food Site candidates, excluding recorded closures. Multiple listings can share an address; the model resource count uses distinct addresses.')
-            st.dataframe(nearby.rename(columns={'Site name': 'Food site'}), hide_index=True, use_container_width=True, column_config={
+            st.dataframe(nearby.rename(columns={'Site name': 'Food site'}), hide_index=True, width="stretch", column_config={
                 'Miles': st.column_config.NumberColumn(format='%.2f'),
                 'Website': st.column_config.LinkColumn('Website reference'),
                 'Source URL': st.column_config.LinkColumn('City source dataset'),

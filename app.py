@@ -1,11 +1,11 @@
 from pathlib import Path
-import math
 from html import escape
 from budget_lab import render_budget_lab
 from food_evidence import render_food_sites
 from staff_map import render_staff_map
 from overview_header import render_overview_header
 from page_design import render_page_background
+from presentation import attach_service_status, export_with_context, review_brief, weighted_components
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -19,15 +19,15 @@ SNAPSHOT_DATE = "October 9, 2026"
 BASE_WEIGHTS = {"Economic need": 30.0, "Fresh food access": 25.0, "Resource gap": 25.0, "Potential reach": 5.0}
 MAX_POINTS = {"Economic need": 30.0, "Fresh food access": 25.0, "Resource gap": 25.0, "Potential reach": 5.0}
 
-st.set_page_config(page_title="Philadelphia School Food Access Priority Tool", page_icon="◼", layout="wide")
+st.set_page_config(page_title="Philadelphia School Food Access Priority Tool", page_icon="🌿", layout="wide")
 
 st.markdown("""
 <style>
 .block-container {padding-top: 1.7rem; padding-bottom: 3rem; max-width: 1450px;}
 [data-testid="stMetric"] {background:#ffffff; border:1px solid #dde7df; padding:14px 16px; border-radius:14px;}
 [data-testid="stSidebar"] {border-right:1px solid #dde7df;}
-.hero {padding: 8px 0 14px 0;}
-.hero h1 {font-size:2.35rem; line-height:1.08; margin-bottom:.35rem; letter-spacing:-.03em;}
+.hero {padding: 8px 0 14px 0;background:rgba(255,255,255,.92);border-radius:6px;}
+.hero h1 {font-size:clamp(1.8rem,2.6vw,2.35rem); line-height:1.12; margin-bottom:.35rem; letter-spacing:-.03em;}
 .hero p {font-size:1.03rem; color:#526057; max-width:930px;}
 .kicker {font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:#2D6A4F; font-weight:700;}
 .card {background:white; border:1px solid #dde7df; border-radius:14px; padding:17px 18px; margin-bottom:12px;}
@@ -99,7 +99,13 @@ def filter_schools(df, key, tier_options=None):
     with c:
         options = tier_options if tier_options is not None else sorted(df["Tier"].unique())
         tiers = st.multiselect("Priority tier", options, key=key + "_tiers")
+    service_options = sorted(df["Service status"].unique()) if "Service status" in df else []
+    service_filter = st.multiselect("Service status", service_options, key=key + "_service", help="Current and former service come from the supplied list. Not listed as served does not prove a school has never received service.")
+    st.caption("Leave filters empty to include all matches. Grade combinations are separate source categories.")
+    st.button("Clear filters", key=key + "_clear", on_click=clear_school_filters, args=(key,))
     out = df[pd.Series(True, index=df.index) & (df["Type"].isin(types) if types else True) & (df["Level"].isin(levels) if levels else True) & (df["Tier"].isin(tiers) if tiers else True)]
+    if service_filter:
+        out = out[out["Service status"].isin(service_filter)]
     if query.strip():
         match = pd.Series(False, index=out.index)
         for column in ["School", "ZIP", "School ID"]:
@@ -109,21 +115,42 @@ def filter_schools(df, key, tier_options=None):
 
 
 def school_table(df, filename):
-    columns = ["Scenario rank", "School", "Type", "Level", "School ID", "ZIP", "School address", "Enrollment", "Economic %", "Scenario score", "Tier", "Effective fresh miles", "Effective resources", "Food evidence", "Rationale", "Review row", "Order"]
+    columns = ["Scenario rank", "School", "Type", "Level", "Service status", "School ID", "ZIP", "School address", "Enrollment", "Economic %", "Scenario score", "Tier", "Effective fresh miles", "Effective resources", "Food evidence", "Rationale", "Review row", "Order"]
     table = df[columns].rename(columns={"Type": "School type", "Level": "School level", "Economic %": "Economic need", "Scenario score": "Score /85", "Effective fresh miles": "Fresh miles", "Effective resources": "Resources ≤1mi", "Rationale": "Why it needs attention"})
     # Display percentages as 0–100 while keeping model values unchanged.
     table["Economic need"] *= 100
-    st.dataframe(table, use_container_width=True, hide_index=True,
+    st.dataframe(table, width="stretch", hide_index=True,
                  column_config={"Economic need": st.column_config.NumberColumn(format="%.1f%%"), "Score /85": st.column_config.NumberColumn(format="%.1f")})
-    st.download_button("Download filtered schools", table.to_csv(index=False).encode("utf-8"), filename, "text/csv")
+    st.download_button("Download filtered schools", export_with_context(table, w, SNAPSHOT_DATE), filename, "text/csv")
     if table.empty:
         st.info("No rankable schools match these filters.")
 
 
-all_df = load_data()
+all_df = attach_service_status(load_data(), pd.read_csv(BASE / "data" / "served_schools.csv", dtype={"School ID": str}))
 
-st.sidebar.markdown("### Priority Tool")
-page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Distance review", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources", "Analytical Framework"], label_visibility="collapsed")
+
+def navigate_to(page_name):
+    st.session_state["nav_page"] = page_name
+
+
+def reset_weights():
+    for key in ["weight_e", "weight_f", "weight_r", "weight_p"]:
+        st.session_state[key] = None
+
+
+def clear_school_filters(prefix):
+    for suffix in ["types", "levels", "tiers", "service"]:
+        st.session_state[prefix + "_" + suffix] = []
+    st.session_state[prefix + "_search"] = ""
+    if prefix == "served":
+        st.session_state["served_group"] = None
+    if prefix == "overview":
+        st.session_state["overview_count"] = None
+
+
+st.sidebar.markdown("### School Food Access")
+st.sidebar.caption("Philadelphia · Outreach planning")
+page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Distance review", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources", "Analytical Framework"], key="nav_page", label_visibility="collapsed")
 render_page_background(page)
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
@@ -138,25 +165,42 @@ with st.sidebar.expander("Scenario weights", expanded=(page == "Scenario Lab")):
     f = st.number_input("Fresh food access", min_value=0, max_value=60, value=None, key="weight_f")
     r = st.number_input("Existing-resource gap", min_value=0, max_value=60, value=None, key="weight_r")
     p = st.number_input("Potential reach", min_value=0, max_value=30, value=None, key="weight_p")
+    st.button("Restore baseline weights", key="restore_weights", on_click=reset_weights)
 raw_w = {"Economic need":float(e if e is not None else 30), "Fresh food access":float(f if f is not None else 25), "Resource gap":float(r if r is not None else 25), "Potential reach":float(p if p is not None else 5)}
 w = normalize_weights(raw_w)
 ranked = apply_scenario(eligible_df, w)
 ranked["Order"] = range(1, len(ranked) + 1)
 rankable = ranked[ranked["Scenario score"].notna()].copy()
+scenario_name = "Baseline scenario" if all(abs(w[k] - BASE_WEIGHTS[k]) < 1e-8 for k in w) else "Custom scenario"
+st.sidebar.caption(f"{scenario_name} · {len(rankable):,} rankable schools")
+st.sidebar.caption("Saved source data · listed food access requires verification")
 
 if page == "Overview":
     render_overview_header()
-    f1, f2 = st.columns(2)
+    with st.expander("A practical review workflow"):
+        a, b, c = st.columns(3)
+        a.button("1 · Explore school profiles", on_click=navigate_to, args=("School Explorer",), width="stretch")
+        b.button("2 · Review distance and spacing", on_click=navigate_to, args=("Distance review",), width="stretch")
+        c.button("3 · Compare budget allocations", on_click=navigate_to, args=("Budget & Allocation Lab",), width="stretch")
+        st.caption("Use the shortlist to identify priorities, check geographic overlap, then assess a feasible allocation. Listed need is a starting point for staff review.")
+    f1, f2, f3 = st.columns(3)
     with f1:
         overview_types = st.multiselect("School type", sorted(eligible_df["Type"].dropna().unique()), key="overview_types")
     with f2:
         overview_levels = st.multiselect("School level", sorted(eligible_df["Level"].dropna().unique()), key="overview_levels")
+    with f3:
+        overview_service = st.multiselect("Service status", sorted(rankable["Service status"].unique()), key="overview_service", help="Current and former service come from the supplied list. Not listed as served is not proof of no historical service.")
     overview_eligible = eligible_df[eligible_df["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & eligible_df["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
     overview_rankable = rankable[rankable["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & rankable["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
-    count_input = st.number_input("Number of schools to view", min_value=1, max_value=max(25, len(rankable)), value=None, placeholder="25", key="overview_count")
+    if overview_service:
+        overview_eligible = overview_eligible[overview_eligible["Service status"].isin(overview_service)]
+        overview_rankable = overview_rankable[overview_rankable["Service status"].isin(overview_service)]
+    count_col, reset_col = st.columns([4, 1], vertical_alignment="bottom")
+    count_input = count_col.number_input("Number of schools to view", min_value=1, max_value=max(25, len(rankable)), value=None, placeholder="25", key="overview_count")
+    reset_col.button("Clear filters", key="overview_clear", on_click=clear_school_filters, args=("overview",), width="stretch")
     count = count_input if count_input is not None else 25
     top = overview_rankable.head(count).copy()
-    st.caption(f"Filters apply first, then we select the top {count} matching schools. Blank school count defaults to 25. Metrics reflect your selection; rank and order retain their citywide scenario values. Combined grade levels are listed separately.")
+    st.caption(f"Top {count} within your filters · Counts reflect this view · Rank and Order retain their citywide scenario values. Blank school count defaults to 25.")
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Eligible candidates", f"{len(overview_eligible):,}")
     c2.metric("Rankable now", f"{len(overview_rankable):,}")
@@ -171,10 +215,26 @@ if page == "Overview":
     show = top[["Scenario rank","School","Type","Economic %","Enrollment","Effective fresh miles","Effective resources","Scenario score","Tier"]].copy()
     show.columns = ["Rank","School","Type","Economic need","Enrollment","Fresh access (mi)","Resources ≤1mi","Score /85","Priority tier"]
     show["Economic need"] *= 100
-    for column, field in [("Order", "Order"), ("School level", "Level"), ("Food evidence", "Food evidence"), ("Why it needs attention", "Rationale"), ("Review row", "Review row")]:
+    for column, field in [("Order", "Order"), ("School level", "Level"), ("Food evidence", "Food evidence"), ("Why it needs attention", "Rationale"), ("Review row", "Review row"), ("Service status", "Service status")]:
         show[column] = top[field]
-    st.dataframe(show, use_container_width=True, hide_index=True,
-                 column_config={"Economic need":st.column_config.NumberColumn(format="%.0%%"),"Fresh access (mi)":st.column_config.NumberColumn(format="%.2f"),"Score /85":st.column_config.NumberColumn(format="%.1f")})
+    first_columns = ["Rank", "School", "Type", "School level", "Service status"]
+    show = show[first_columns + [column for column in show if column not in first_columns]]
+    st.dataframe(show, width="stretch", hide_index=True,
+                 column_config={"Economic need":st.column_config.NumberColumn(format="%.1f%%"),"Fresh access (mi)":st.column_config.NumberColumn(format="%.2f"),"Score /85":st.column_config.NumberColumn(format="%.1f")})
+
+    x, y = st.columns(2)
+    x.download_button("Download shortlist CSV", export_with_context(show, w, SNAPSHOT_DATE), "overview_shortlist.csv", "text/csv")
+    y.download_button("Download review brief", review_brief(top, w, SNAPSHOT_DATE, {"School types":overview_types, "School levels":overview_levels, "Service status":overview_service}), "school_review_brief.md", "text/markdown")
+    st.caption("Exports include the snapshot and current weights. Confirm service status and local food access before outreach commitments.")
+    awaiting = overview_eligible[~overview_eligible["School ID"].isin(rankable["School ID"])]
+    if not awaiting.empty:
+        with st.expander(f"{len(awaiting)} matching schools need scoring-data review"):
+            st.caption("These eligible schools are not assigned a complete score. No missing component points have been imputed.")
+            review = awaiting[["School ID", "School", "Type", "Level", "Service status"]].copy()
+            components = {"Economic points":"Economic need", "Fresh points":"Fresh-food access", "Resource points":"Resource gap", "Reach points":"Enrollment / reach"}
+            review["Missing scoring inputs"] = awaiting.apply(lambda row: ", ".join(label for field, label in components.items() if pd.isna(row[field])), axis=1)
+            st.dataframe(review, hide_index=True, width="stretch")
+
 
     left,right = st.columns([1.1,1])
     with left:
@@ -188,11 +248,11 @@ if page == "Overview":
         comp = pd.DataFrame({"Component":list(w.keys()),"Weight":list(w.values())})
         fig = px.bar(comp, x="Weight", y="Component", orientation="h", text=comp["Weight"].map(lambda x:f"{x:.1f}"), title="Current 85-point scenario")
         fig.update_layout(height=320, margin=dict(l=10,r=10,t=50,b=20), yaxis_title=None, xaxis_title="Points")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 elif page == "All Rankable Schools":
     st.title("All Rankable Schools")
-    st.write("Every eligible, unserved school with a complete scenario score. Rankings follow your sidebar weights.")
+    st.write("Every eligible school with a complete scenario score, including known service status. Rankings follow your sidebar weights.")
     st.caption("School level describes grades served; school type describes district, charter, or contracted status. Combined levels are retained exactly as listed in the source.")
     schools = filter_schools(rankable, "directory")
     a, b, c = st.columns(3)
@@ -208,14 +268,14 @@ elif page == "Served Schools":
     service = pd.read_csv(BASE / "data" / "served_schools.csv", dtype={"School ID": str})
     scored = apply_scenario(all_df, w).drop(columns=["Scenario rank"])
     scored["Scenario rank"] = scored["School ID"].map(rankable.set_index("School ID")["Scenario rank"]).astype("Int64")
-    served = service.merge(scored, on="School ID", how="left", validate="one_to_one", indicator=True)
+    served = service.merge(scored.drop(columns=["Service status"]), on="School ID", how="left", validate="one_to_one", indicator=True)
     active = served[served["Service status"] == "Currently served"]
     a, b, c, d = st.columns(4)
     a.metric("Currently served schools", len(active))
     b.metric("Formerly served schools", int((served["Service status"] == "Formerly served").sum()))
     c.metric("Current schools with a scenario rank", int(active["Scenario rank"].notna().sum()))
     d.metric("Enrollment at current schools", fmt_num(active["Enrollment"].sum()))
-    status = st.radio("Service group", ["Currently served", "Formerly served", "All listed schools"], horizontal=True, index=None)
+    status = st.radio("Service group", ["Currently served", "Formerly served", "All listed schools"], horizontal=True, index=None, key="served_group")
     subset = served if status in (None, "All listed schools") else served[served["Service status"] == status]
     unmatched = subset[subset["_merge"] == "left_only"]
     if not unmatched.empty:
@@ -229,19 +289,19 @@ elif page == "Served Schools":
     choices = choices.sort_values(["Scenario rank", "School"], na_position="last")
     table = choices[["Scenario rank", "School", "Type", "Level", "School ID", "ZIP", "School address", "Enrollment", "Economic %", "Scenario score", "Tier", "Service status", "Effective fresh miles", "Effective resources", "Food evidence", "Rationale", "Review row"]].rename(columns={"Type": "School type", "Level": "School level", "Economic %": "Economic need", "Scenario score": "Score /85", "Effective fresh miles": "Fresh miles", "Effective resources": "Resources ≤1mi", "Rationale": "Why it needs attention"})
     table["Economic need"] *= 100
-    st.dataframe(table, hide_index=True, use_container_width=True, column_config={"Economic need": st.column_config.NumberColumn(format="%.2f%%"), "Score /85": st.column_config.NumberColumn(format="%.1f")})
-    st.download_button("Download served-school rankings", table.to_csv(index=False).encode("utf-8"), "served_school_rankings.csv", "text/csv")
+    st.dataframe(table, hide_index=True, width="stretch", column_config={"Economic need": st.column_config.NumberColumn(format="%.2f%%"), "Score /85": st.column_config.NumberColumn(format="%.1f")})
+    st.download_button("Download served-school rankings", export_with_context(table, w, SNAPSHOT_DATE), "served_school_rankings.csv", "text/csv")
     if choices.empty:
         st.info("No served schools match these filters.")
     else:
         chart = choices.dropna(subset=["Scenario score"])
         if not chart.empty:
-            st.plotly_chart(px.bar(chart.sort_values("Scenario score"), x="Scenario score", y="School", color="Service status", orientation="h", title="Priority scores across your service footprint", hover_data=["Scenario rank", "Level", "Tier"]), use_container_width=True)
+            st.plotly_chart(px.bar(chart.sort_values("Scenario score"), x="Scenario score", y="School", color="Service status", orientation="h", title="Priority scores across your service footprint", hover_data=["Scenario rank", "Level", "Tier"]), width="stretch")
         if choices["Scenario rank"].isna().any():
             st.info("A blank scenario rank means the school is outside the current rankable comparison pool or lacks required scoring data.")
     with st.expander("Source and school-name matching"):
         st.write("Source: SBD SY26x27 School Master Sheet, supplied October 14, 2026. Abbreviated names were resolved against school names and addresses; John B. Kelly was matched by name. Staff contacts and internal operational notes are omitted.")
-        st.dataframe(subset[["Source school name", "School", "School ID", "Service status", "Match basis"]], hide_index=True, use_container_width=True)
+        st.dataframe(subset[["Source school name", "School", "School ID", "Service status", "Match basis"]], hide_index=True, width="stretch")
 
 elif page == "Food Resources":
     st.title("Food Resources")
@@ -269,7 +329,7 @@ elif page == "Food Resources":
     cols = ["School", "Type", "Level", "ZIP", "Nearest supermarket", "Retailer address", "Effective fresh miles", "Effective resources", "Fresh basis", "Resource basis", "Food evidence"]
     evidence = schools[cols].rename(columns={"Type": "School type", "Level": "School level", "Effective fresh miles": "Fresh access (mi)", "Effective resources": "Resources within 1 mi"})
     st.caption(f"{len(evidence):,} schools. Retailers are listed supermarket evidence, not confirmed free-food distribution sites. Resource counts are snapshot indicators. Select a school below for named nearby food sites and website references.")
-    st.dataframe(evidence, hide_index=True, use_container_width=True,
+    st.dataframe(evidence, hide_index=True, width="stretch",
                  column_config={"Fresh access (mi)": st.column_config.NumberColumn(format="%.2f")})
     st.download_button("Download food-access evidence", evidence.to_csv(index=False).encode("utf-8"), "school_food_evidence.csv", "text/csv")
     if schools.empty:
@@ -283,6 +343,8 @@ elif page == "Food Resources":
             for label, field in [("Nearest listed supermarket", "Nearest supermarket"), ("Retailer address", "Retailer address"), ("Fresh-food evidence basis", "Fresh basis"), ("Resource evidence basis", "Resource basis"), ("Food evidence", "Food evidence")]:
                 st.write(f"**{label}:** {row[field] if pd.notna(row[field]) else 'Not recorded'}")
             render_food_sites(row, "food_profile_sites")
+        else:
+            st.caption("Choose a school above to view named food sites, distances, and provider websites.")
 
 elif page == "Priority Map":
     st.title("Priority Map")
@@ -328,7 +390,7 @@ elif page == "Priority Map":
             view = pdk.data_utils.compute_view(m[["Longitude", "Latitude"]], view_proportion=0.85) if len(m) > 1 else pdk.ViewState(latitude=float(m.iloc[0]["Latitude"]), longitude=float(m.iloc[0]["Longitude"]), zoom=13)
         tooltip = {"html": "<b>{school_label}</b><br/>{level_label} · {type_label}<br/>{address_label}<br/>{tier_label}<br/>Score: {score_label}<br/>Economic need: {econ_label}<br/>Fresh access: {fresh_label} mi<br/>Resources within 1 mi: {resource_label}<br/>Nearest listed supermarket: {supermarket_label}", "style": {"backgroundColor": "#17201A", "color": "white"}}
         styles = {"Light": "light", "Dark": "dark", "Street": "road"}
-        st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style=styles[style or "Light"]), use_container_width=True)
+        st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style=styles[style or "Light"]), width="stretch")
         st.caption("Pan and zoom to explore; hover over a marker for school and food-access details. Map backgrounds require internet access. See Food Resources or School Explorer for nearby food-site listings from the workbook snapshot; consult providers for current availability.")
     school_table(schools, "mapped_school_selection.csv")
 
@@ -336,7 +398,7 @@ elif page == "Distance review":
     render_staff_map(rankable, all_df, w)
 
 elif page == "Budget & Allocation Lab":
-    render_budget_lab(rankable, all_df)
+    render_budget_lab(rankable, all_df, w, SNAPSHOT_DATE)
 
 elif page == "Scenario Lab":
     st.markdown('<div class="hero"><div class="kicker">Policy sensitivity</div><h1>Scenario Lab</h1><p>Test how different value judgments change the recommended outreach order. This is the economics layer: the ranking depends on how the organization chooses to value competing objectives.</p></div>', unsafe_allow_html=True)
@@ -350,20 +412,28 @@ elif page == "Scenario Lab":
     a,b,c,d = st.columns(4)
     a.metric("Schools selected", len(portfolio))
     b.metric("Potential student reach", f"{int(portfolio['Enrollment'].sum()):,}")
-    c.metric("Avg. economic need", f"{portfolio['Economic %'].mean():.0%}")
-    d.metric("Avg. priority score", f"{portfolio['Scenario score'].mean():.1f}/85")
+    c.metric("Avg. economic need", fmt_pct(portfolio["Economic %"].mean()))
+    d.metric("Avg. priority score", f"{portfolio['Scenario score'].mean():.1f}/85" if len(portfolio) else "—")
 
     base = apply_scenario(eligible_df, BASE_WEIGHTS)
     comp = rankable[["School","Scenario rank","Scenario score"]].merge(base[["School","Scenario rank","Scenario score"]], on="School", suffixes=(" current"," baseline"))
     comp["Rank change"] = comp["Scenario rank baseline"] - comp["Scenario rank current"]
+    comp = comp[comp["Rank change"] != 0]
     changed = comp.reindex(comp["Rank change"].abs().sort_values(ascending=False).index).head(12)
     st.markdown("### Schools most sensitive to your assumptions")
-    fig = px.bar(changed.sort_values("Rank change"), x="Rank change", y="School", orientation="h", title="Rank movement vs. baseline (+ = moves up)")
-    fig.update_layout(height=440, margin=dict(l=10,r=10,t=50,b=20), yaxis_title=None)
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown("### Recommended portfolio")
-    st.dataframe(portfolio[["Scenario rank","School","Type","Level","Economic %","Enrollment","Effective fresh miles","Effective resources","Scenario score","Tier","Food evidence","Rationale","Review row"]], use_container_width=True, hide_index=True,
-                 column_config={"Economic %":st.column_config.NumberColumn(format="%.0%%"),"Effective fresh miles":st.column_config.NumberColumn(format="%.2f"),"Scenario score":st.column_config.NumberColumn(format="%.1f")})
+    if changed.empty:
+        st.info("No rank changes from the baseline scenario. Adjust the sidebar weights to explore a different priority order.")
+    else:
+        fig = px.bar(changed.sort_values("Rank change"), x="Rank change", y="School", orientation="h", title="Rank movement vs. baseline (+ = moves up)")
+        fig.update_layout(height=440, margin=dict(l=10,r=10,t=50,b=20), yaxis_title=None)
+        st.plotly_chart(fig, width="stretch")
+    st.markdown("### Scenario portfolio")
+    if portfolio.empty:
+        st.info("Enter a school capacity to build a portfolio for this scenario.")
+    scenario_table = portfolio[["Scenario rank","School","Type","Level","Economic %","Enrollment","Effective fresh miles","Effective resources","Scenario score","Tier","Food evidence","Rationale","Review row"]].copy()
+    scenario_table["Economic %"] *= 100
+    st.dataframe(scenario_table, width="stretch", hide_index=True,
+                 column_config={"Economic %":st.column_config.NumberColumn(format="%.1f%%"),"Effective fresh miles":st.column_config.NumberColumn(format="%.2f"),"Scenario score":st.column_config.NumberColumn(format="%.1f")})
 
 elif page == "School Explorer":
     st.markdown('<div class="hero"><div class="kicker">Evidence profile</div><h1>School Explorer</h1><p>Inspect the factors behind an individual school’s ranking and the evidence that should be verified before outreach.</p></div>', unsafe_allow_html=True)
@@ -371,7 +441,7 @@ elif page == "School Explorer":
     choices = rankable.copy()
     if search.strip():
         q = search.strip().lower()
-        mask = choices["School"].str.lower().str.contains(q, na=False) | choices["ZIP"].astype(str).str.contains(q, na=False) | choices["School ID"].astype(str).str.contains(q, na=False)
+        mask = choices["School"].str.lower().str.contains(q, na=False, regex=False) | choices["ZIP"].astype(str).str.contains(q, na=False, regex=False) | choices["School ID"].astype(str).str.contains(q, na=False, regex=False)
         choices = choices[mask]
     if choices.empty:
         st.warning("No matching eligible school found.")
@@ -380,7 +450,7 @@ elif page == "School Explorer":
         if selected is not None:
             row = rankable[rankable["School"]==selected].iloc[0]
             st.markdown(f"## {selected}")
-            st.caption(f"{row['Type']} · {row['Level']} · ZIP {row['ZIP']} · School ID {row['School ID']}")
+            st.caption(f"{row['Type']} · {row['Level']} · ZIP {row['ZIP']} · School ID {row['School ID']} · {row['Service status']}")
             m1,m2,m3,m4 = st.columns(4)
             m1.metric("Scenario rank", f"#{int(row['Scenario rank'])}")
             m2.metric("Priority score", f"{row['Scenario score']:.1f}/85")
@@ -396,35 +466,39 @@ elif page == "School Explorer":
                 st.write(f"**School address:** {row['School address'] if pd.notna(row['School address']) else '—'}")
                 st.info("Listed access does not establish produce quality, affordability, walkability, hours, recurrence, or household eligibility. Verify before commitment.")
             with right:
-                labels=["Economic need","Fresh food access","Resource gap","Potential reach"]
-                vals=[row['Economic points']/30*100,row['Fresh points']/25*100,row['Resource points']/25*100,row['Reach points']/5*100]
-                fig=go.Figure(go.Bar(x=vals,y=labels,orientation='h',text=[f"{v:.0f}%" for v in vals],textposition='auto'))
-                fig.update_layout(title="Rubric strength by component",xaxis=dict(range=[0,100],title="Share of maximum component points"),yaxis_title=None,height=320,margin=dict(l=10,r=10,t=50,b=25))
-                st.plotly_chart(fig,use_container_width=True)
+                breakdown = weighted_components(row, w)
+                fig = px.bar(breakdown, x="Scenario contribution", y="Component", orientation="h", text=breakdown["Scenario contribution"].map(lambda value:f"{value:.1f} pts"), color_discrete_sequence=["#2D6A4F"])
+                fig.update_layout(title="Contribution to current scenario score", xaxis=dict(range=[0, max(30, max(w.values()))], title="Points"), yaxis_title=None, height=320, margin=dict(l=10,r=10,t=50,b=25))
+                st.plotly_chart(fig, width="stretch")
             render_food_sites(row, "explorer_food_sites")
-            st.markdown("### Why it ranks here")
-            st.markdown(f'<div class="card">{row["Rationale"]}</div>', unsafe_allow_html=True)
+            with st.expander("View rubric breakdown"):
+                st.dataframe(breakdown, hide_index=True, width="stretch", column_config={"Scenario contribution": st.column_config.NumberColumn(format="%.1f"), "Current maximum": st.column_config.NumberColumn(format="%.1f")})
+            st.markdown("### Snapshot rationale")
+            st.markdown(f'<div class="card">{escape(str(row["Rationale"]))}</div>', unsafe_allow_html=True)
+
+        else:
+            st.info("Choose a school to open its profile, current rubric breakdown, and nearby food-site references.")
 
 elif page == "Methodology & Sources":
     st.markdown('<div class="hero"><div class="kicker">Transparency</div><h1>Methodology & Sources</h1><p>The model is intentionally simple enough for staff to audit. Each component is scored from observable indicators, then combined into an 85-point priority score.</p></div>', unsafe_allow_html=True)
     st.markdown("### Baseline rubric")
     rubric = pd.DataFrame([
-        ["Economic need",30,"90%+ → 30; 80–89.9 → 25; 70–79.9 → 20; 60–69.9 → 15; 50–59.9 → 10; 40–49.9 → 5; below 40 → 0"],
-        ["Fresh food access",25,">1 mi → 25; 0.75–1 → 20; 0.50–0.74 → 15; 0.25–0.49 → 10; <0.25 → 5"],
+        ["Economic need",30,"≥90% → 30; 80–<90% → 25; 70–<80% → 20; 60–<70% → 15; 50–<60% → 10; 40–<50% → 5; <40% → 0"],
+        ["Fresh food access",25,">1 mi → 25; 0.75–1 → 20; 0.50–<0.75 → 15; 0.25–<0.50 → 10; <0.25 → 5"],
         ["Existing food-access resources",25,"0 → 25; 1 → 20; 2 → 15; 3 → 10; 4 → 5; 5+ → 0"],
         ["Potential reach / enrollment",5,"700+ → 5; 500–699 → 4; 350–499 → 3; 200–349 → 2; under 200 → 1"],
     ], columns=["Component","Maximum points","Scoring rule"])
-    st.dataframe(rubric,use_container_width=True,hide_index=True)
+    st.dataframe(rubric,width="stretch",hide_index=True)
     st.markdown("### Priority tiers")
-    st.write("**Tier 1:** 70–85 · **Tier 2:** 55–69 · **Tier 3:** 40–54 · **Tier 4:** 0–39")
+    st.write("**Tier 1:** ≥70 · **Tier 2:** 55–<70 · **Tier 3:** 40–<55 · **Tier 4:** <40")
     st.markdown("### Ranking rule")
     st.write("Scores are sorted descending, then economic disadvantage descending, enrollment descending, and School ID ascending. Schools missing a required input remain visible in the source model but are not given a complete scenario score.")
     st.markdown("### Data provenance")
     st.write(f"This public tool uses the model snapshot dated **{SNAPSHOT_DATE}**. Directory data are 2026–27; enrollment/demographic inputs are 2025–26. Charter Title I status uses the last populated 2025–26 designation where the current directory omits it and should be confirmed before commitment.")
     src=load_sources()
-    links=src[src['Setting'].astype(str).str.contains('URL',case=False,na=False)].copy()
+    links=src[src['Value'].astype(str).str.startswith(('https://','http://'))].copy()
     if not links.empty:
-        st.dataframe(links.rename(columns={"Setting":"Source","Value":"URL"}),use_container_width=True,hide_index=True)
+        st.dataframe(links.rename(columns={"Setting":"Source","Value":"URL"}),width="stretch",hide_index=True, column_config={"URL":st.column_config.LinkColumn("Original source")})
     st.markdown("### Original master workbook")
     st.write("Download the original Excel model supplied as the foundation for this app, including its ranking, school-profile, and source-data worksheets.")
     st.caption("SBD_Expansion_Model_Final-draft_026.xlsx · Original file as supplied. This download is a reference workbook; the app uses its saved data snapshots and does not automatically import changes from this file.")
@@ -444,4 +518,4 @@ elif page == "Analytical Framework":
     st.markdown((BASE / "docs" / "methodology.md").read_text(encoding="utf-8"))
 
 st.markdown("---")
-st.caption("Decision-support prototype built from the SBD Expansion Model. Public-facing outputs should be paired with staff verification and periodic data refreshes.")
+st.caption("Philadelphia School Food Access · Built from the SBD Expansion Model. Listed access and priorities support staff review; they do not establish eligibility or measured program impact.")

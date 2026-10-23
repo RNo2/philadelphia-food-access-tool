@@ -51,7 +51,8 @@ class BudgetPageTests(unittest.TestCase):
         app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / 'app.py'), default_timeout=60).run()
         app.sidebar.radio[0].set_value('Budget & Allocation Lab').run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
-        self.assertEqual(len(app.dataframe), 0)
+        self.assertEqual(len(app.tabs), 2)
+        self.assertTrue(app.dataframe[0].value.empty)
         for key, value in [('lab_budget',25000.0), ('lab_cost',1500.0), ('lab_capacity',15), ('lab_participation',25)]:
             self.assertIsNone(app.number_input(key=key).value)
             app.number_input(key=key).set_value(value).run()

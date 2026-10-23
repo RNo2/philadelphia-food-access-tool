@@ -4,6 +4,7 @@ from html import escape
 from budget_lab import render_budget_lab
 from food_evidence import render_food_sites
 from staff_map import render_staff_map
+from overview_header import render_overview_header
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -142,7 +143,7 @@ ranked["Order"] = range(1, len(ranked) + 1)
 rankable = ranked[ranked["Scenario score"].notna()].copy()
 
 if page == "Overview":
-    st.markdown('<div class="hero"><div class="kicker">Applied Economics · Food Access · Resource Allocation</div><h1>Philadelphia School Food Access Priority Tool</h1><p>A transparent decision-support model for identifying schools where fresh-food outreach may have the greatest need. The tool combines economic disadvantage, geographic fresh-food access, nearby food resources, and potential student reach.</p></div>', unsafe_allow_html=True)
+    render_overview_header()
     f1, f2 = st.columns(2)
     with f1:
         overview_types = st.multiselect("School type", sorted(eligible_df["Type"].dropna().unique()), key="overview_types")

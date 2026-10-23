@@ -323,7 +323,7 @@ elif page == "Priority Map":
     school_table(schools, "mapped_school_selection.csv")
 
 elif page == "Distance review":
-    render_staff_map(rankable, all_df)
+    render_staff_map(rankable, all_df, w)
 
 elif page == "Budget & Allocation Lab":
     render_budget_lab(rankable, all_df)

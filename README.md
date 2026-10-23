@@ -155,3 +155,21 @@ Overview defaults to 25 schools after filtering. Its blank school-count control
 uses 25 until a user enters another count; the table and enrollment metric update
 together. Distance review selects up to 25 after school-type, level, and service
 filters. Fewer results appear only when fewer schools match.
+
+## Minimum-spacing recommendations
+
+Distance review has an optional blank `Minimum school separation (miles)` input.
+Entering a value compares the currently filtered top 25 and builds a priority-first
+shortlist: sort by scenario score, economic-disadvantage rate, enrollment, then
+School ID; retain a school only if it is strictly farther than the entered distance
+from every school already recommended. Schools with invalid coordinates are held
+for review. This greedy rule favors the highest-priority schools; it does not
+maximize total score or the number of schools. It does not backfill outside the
+current top 25 or infer that proximity proves duplicated beneficiaries.
+
+The map colors recommended schools green and excluded schools gray. Downloadable
+decisions identify which recommended schools blocked an exclusion. Pair-by-pair
+comparisons show both schools' scores, economic-disadvantage rate, enrollment,
+food-access indicators, current weighted rubric contributions, and final statuses.
+Two nearby schools may both be excluded if each conflicts with other recommended
+schools. Recommendations update with school/service filters, weights, and distance.

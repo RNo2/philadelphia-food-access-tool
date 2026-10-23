@@ -254,6 +254,13 @@ elif page == "Food Resources":
             st.write(description)
             st.link_button("Open " + name + " directory", url)
     st.info("These links open the providers’ directories. Food-site listings are imported from the supplied workbook snapshot; current hours and eligibility have not been verified here. Check the provider’s current listing before visiting; the school evidence below is from the October 9, 2026 model snapshot.")
+    with st.expander("Which fresh-food outlets qualify?"):
+        st.write("Qualifying sources: supermarkets, full-service groceries, groceries with substantial fresh-produce selections, farmers markets, farm stands, and other recurring fresh-produce outlets.")
+        st.write("Exclude convenience stores such as 7-Eleven, gas-station shops, pharmacies, and outlets offering only incidental or packaged food. A SNAP authorization or a business name alone does not establish substantial fresh-produce access.")
+        st.write("For added markets and smaller outlets, record an identifiable location, source reference, evidence of fresh-produce selection, operating schedule/season, and review date before including the outlet in access calculations.")
+        st.info("Current scoring coverage: the saved USDA supermarket/superstore snapshot. Farmers-market, farm-stand, and additional produce-grocery listings are pending source verification and are not yet included in distances or scores.")
+        st.markdown("[The Food Trust · farmers-market source](https://thefoodtrust.org/what-we-do/farmers-markets/)")
+        st.markdown("[Farm to City · market source](https://www.farmtocitymarkets.com/markets)")
     st.subheader("Food access around schools")
     schools = filter_schools(rankable, "food")
     cols = ["School", "Type", "Level", "ZIP", "Nearest supermarket", "Retailer address", "Effective fresh miles", "Effective resources", "Fresh basis", "Resource basis", "Food evidence"]

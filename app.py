@@ -5,6 +5,7 @@ from budget_lab import render_budget_lab
 from food_evidence import render_food_sites
 from staff_map import render_staff_map
 from overview_header import render_overview_header
+from page_design import render_page_background
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -123,6 +124,7 @@ all_df = load_data()
 
 st.sidebar.markdown("### Priority Tool")
 page = st.sidebar.radio("Navigate", ["Overview", "All Rankable Schools", "Served Schools", "Food Resources", "Priority Map", "Distance review", "Budget & Allocation Lab", "Scenario Lab", "School Explorer", "Methodology & Sources", "Analytical Framework"], label_visibility="collapsed")
+render_page_background(page)
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")

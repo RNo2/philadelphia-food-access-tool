@@ -173,3 +173,14 @@ comparisons show both schools' scores, economic-disadvantage rate, enrollment,
 food-access indicators, current weighted rubric contributions, and final statuses.
 Two nearby schools may both be excluded if each conflicts with other recommended
 schools. Recommendations update with school/service filters, weights, and distance.
+
+## Page artwork and scrolling
+
+Each page has its own locally hosted decorative 3D artwork themed to its purpose.
+The imagery is generated illustration, not evidence of actual schools, locations,
+service, or financial results. A white overlay and opaque tables/charts preserve
+readability. Desktop browsers supporting CSS scroll timelines gently move the
+background with the main page scroll. Other browsers use native scrolling
+backgrounds. Mobile and reduced-motion settings disable the animated enhancement.
+The artwork does not change data, ranks, filters, or input defaults and requires
+no external image-hosting service or animation library at runtime.

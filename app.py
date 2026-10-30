@@ -5,7 +5,7 @@ from food_evidence import render_food_sites
 from staff_map import render_staff_map
 from overview_header import render_overview_header
 from page_design import render_page_background
-from presentation import attach_service_status, export_with_context, review_brief, weighted_components
+from presentation import attach_service_status, export_with_context, review_brief, weighted_components, expansion_candidates
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -89,7 +89,7 @@ def fmt_num(x, d=0):
     if pd.isna(x): return "—"
     return f"{x:,.{d}f}"
 
-def filter_schools(df, key, tier_options=None):
+def filter_schools(df, key, tier_options=None, include_service=False):
     query = st.text_input("Search school name, ZIP, or School ID", key=key + "_search")
     a, b, c = st.columns(3)
     with a:
@@ -99,8 +99,10 @@ def filter_schools(df, key, tier_options=None):
     with c:
         options = tier_options if tier_options is not None else sorted(df["Tier"].unique())
         tiers = st.multiselect("Priority tier", options, key=key + "_tiers")
-    service_options = sorted(df["Service status"].unique()) if "Service status" in df else []
-    service_filter = st.multiselect("Service status", service_options, key=key + "_service", help="Current and former service come from the supplied list. Not listed as served does not prove a school has never received service.")
+    service_filter = []
+    if include_service:
+        service_options = sorted(df["Service status"].unique())
+        service_filter = st.multiselect("Service status", service_options, key=key + "_service")
     st.caption("Leave filters empty to include all matches. Grade combinations are separate source categories.")
     st.button("Clear filters", key=key + "_clear", on_click=clear_school_filters, args=(key,))
     out = df[pd.Series(True, index=df.index) & (df["Type"].isin(types) if types else True) & (df["Level"].isin(levels) if levels else True) & (df["Tier"].isin(tiers) if tiers else True)]
@@ -156,7 +158,8 @@ st.sidebar.markdown("---")
 st.sidebar.caption(f"Data snapshot: {SNAPSHOT_DATE}")
 st.sidebar.caption("Philadelphia district + charter school targeting model")
 
-eligible_df = all_df[(all_df["Eligible"].astype(str).str.lower() == "yes") & (all_df["Already served"].astype(str).str.lower() != "yes")].copy()
+reference_eligible_df = all_df[all_df["Eligible"].astype(str).str.strip().str.lower().eq("yes")].copy()
+eligible_df = expansion_candidates(reference_eligible_df)
 
 # Shared scenario controls
 with st.sidebar.expander("Scenario weights", expanded=(page == "Scenario Lab")):
@@ -168,9 +171,11 @@ with st.sidebar.expander("Scenario weights", expanded=(page == "Scenario Lab")):
     st.button("Restore baseline weights", key="restore_weights", on_click=reset_weights)
 raw_w = {"Economic need":float(e if e is not None else 30), "Fresh food access":float(f if f is not None else 25), "Resource gap":float(r if r is not None else 25), "Potential reach":float(p if p is not None else 5)}
 w = normalize_weights(raw_w)
-ranked = apply_scenario(eligible_df, w)
-ranked["Order"] = range(1, len(ranked) + 1)
-rankable = ranked[ranked["Scenario score"].notna()].copy()
+reference_ranked = apply_scenario(reference_eligible_df, w)
+reference_ranked["Order"] = range(1, len(reference_ranked) + 1)
+reference_rankable = reference_ranked[reference_ranked["Scenario score"].notna()].copy()
+ranked = expansion_candidates(reference_ranked)
+rankable = expansion_candidates(reference_rankable)
 scenario_name = "Baseline scenario" if all(abs(w[k] - BASE_WEIGHTS[k]) < 1e-8 for k in w) else "Custom scenario"
 st.sidebar.caption(f"{scenario_name} · {len(rankable):,} rankable schools")
 st.sidebar.caption("Saved source data · listed food access requires verification")
@@ -183,24 +188,19 @@ if page == "Overview":
         b.button("2 · Review distance and spacing", on_click=navigate_to, args=("Distance review",), width="stretch")
         c.button("3 · Compare budget allocations", on_click=navigate_to, args=("Budget & Allocation Lab",), width="stretch")
         st.caption("Use the shortlist to identify priorities, check geographic overlap, then assess a feasible allocation. Listed need is a starting point for staff review.")
-    f1, f2, f3 = st.columns(3)
+    f1, f2 = st.columns(2)
     with f1:
         overview_types = st.multiselect("School type", sorted(eligible_df["Type"].dropna().unique()), key="overview_types")
     with f2:
         overview_levels = st.multiselect("School level", sorted(eligible_df["Level"].dropna().unique()), key="overview_levels")
-    with f3:
-        overview_service = st.multiselect("Service status", sorted(rankable["Service status"].unique()), key="overview_service", help="Current and former service come from the supplied list. Not listed as served is not proof of no historical service.")
     overview_eligible = eligible_df[eligible_df["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & eligible_df["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
     overview_rankable = rankable[rankable["Type"].isin(overview_types or eligible_df["Type"].dropna().unique()) & rankable["Level"].isin(overview_levels or eligible_df["Level"].dropna().unique())]
-    if overview_service:
-        overview_eligible = overview_eligible[overview_eligible["Service status"].isin(overview_service)]
-        overview_rankable = overview_rankable[overview_rankable["Service status"].isin(overview_service)]
     count_col, reset_col = st.columns([4, 1], vertical_alignment="bottom")
     count_input = count_col.number_input("Number of schools to view", min_value=1, max_value=max(25, len(rankable)), value=None, placeholder="25", key="overview_count")
     reset_col.button("Clear filters", key="overview_clear", on_click=clear_school_filters, args=("overview",), width="stretch")
     count = count_input if count_input is not None else 25
     top = overview_rankable.head(count).copy()
-    st.caption(f"Top {count} within your filters · Counts reflect this view · Rank and Order retain their citywide scenario values. Blank school count defaults to 25.")
+    st.caption(f"Top {count} within your filters · Counts reflect this view · Rank and Order retain their citywide scenario values. Blank school count defaults to 25. Current and former service is excluded.")
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Eligible candidates", f"{len(overview_eligible):,}")
     c2.metric("Rankable now", f"{len(overview_rankable):,}")
@@ -224,7 +224,7 @@ if page == "Overview":
 
     x, y = st.columns(2)
     x.download_button("Download shortlist CSV", export_with_context(show, w, SNAPSHOT_DATE), "overview_shortlist.csv", "text/csv")
-    y.download_button("Download review brief", review_brief(top, w, SNAPSHOT_DATE, {"School types":overview_types, "School levels":overview_levels, "Service status":overview_service}), "school_review_brief.md", "text/markdown")
+    y.download_button("Download review brief", review_brief(top, w, SNAPSHOT_DATE, {"School types":overview_types, "School levels":overview_levels, "Service eligibility":["No known current or former service"]}), "school_review_brief.md", "text/markdown")
     st.caption("Exports include the snapshot and current weights. Confirm service status and local food access before outreach commitments.")
     awaiting = overview_eligible[~overview_eligible["School ID"].isin(rankable["School ID"])]
     if not awaiting.empty:
@@ -252,7 +252,7 @@ if page == "Overview":
 
 elif page == "All Rankable Schools":
     st.title("All Rankable Schools")
-    st.write("Every eligible school with a complete scenario score, including known service status. Rankings follow your sidebar weights.")
+    st.write("Expansion candidates with complete scenario scores. Currently and formerly served schools are excluded; review their history on Served Schools. Rankings follow your sidebar weights.")
     st.caption("School level describes grades served; school type describes district, charter, or contracted status. Combined levels are retained exactly as listed in the source.")
     schools = filter_schools(rankable, "directory")
     a, b, c = st.columns(3)
@@ -264,10 +264,10 @@ elif page == "All Rankable Schools":
 elif page == "Served Schools":
     st.title("Served Schools")
     st.write("See where schools in your SY26–27 service list land under the current scenario weights.")
-    st.caption("Ranks use the same eligible-school comparison pool as All Rankable Schools, including the served schools in this list. Changing sidebar weights recalculates scores and ranks. This page does not change the existing rankings or allocation candidates.")
+    st.caption("Ranks use the full eligible-school reference pool, including service-history records. Current and former service is excluded from expansion shortlists. Changing sidebar weights recalculates scores and ranks. This page does not change the existing rankings or allocation candidates.")
     service = pd.read_csv(BASE / "data" / "served_schools.csv", dtype={"School ID": str})
     scored = apply_scenario(all_df, w).drop(columns=["Scenario rank"])
-    scored["Scenario rank"] = scored["School ID"].map(rankable.set_index("School ID")["Scenario rank"]).astype("Int64")
+    scored["Scenario rank"] = scored["School ID"].map(reference_rankable.set_index("School ID")["Scenario rank"]).astype("Int64")
     served = service.merge(scored.drop(columns=["Service status"]), on="School ID", how="left", validate="one_to_one", indicator=True)
     active = served[served["Service status"] == "Currently served"]
     a, b, c, d = st.columns(4)
@@ -283,7 +283,7 @@ elif page == "Served Schools":
         st.dataframe(unmatched[["Source school name", "Service status"]], hide_index=True)
     matched = served[served["_merge"] == "both"].copy()
     st.caption("Former service comes from the sheet’s ‘No longer serving’ section. Enrollment and need values come from the model snapshot, not the service sheet. Service status does not demonstrate an improvement in food security.")
-    choices = filter_schools(matched, "served", [tier(85), tier(60), tier(45), tier(0), "Missing data"])
+    choices = filter_schools(matched, "served", [tier(85), tier(60), tier(45), tier(0), "Missing data"], include_service=True)
     if status not in (None, "All listed schools"):
         choices = choices[choices["Service status"] == status]
     choices = choices.sort_values(["Scenario rank", "School"], na_position="last")
@@ -415,7 +415,7 @@ elif page == "Scenario Lab":
     c.metric("Avg. economic need", fmt_pct(portfolio["Economic %"].mean()))
     d.metric("Avg. priority score", f"{portfolio['Scenario score'].mean():.1f}/85" if len(portfolio) else "—")
 
-    base = apply_scenario(eligible_df, BASE_WEIGHTS)
+    base = apply_scenario(reference_eligible_df, BASE_WEIGHTS)
     comp = rankable[["School","Scenario rank","Scenario score"]].merge(base[["School","Scenario rank","Scenario score"]], on="School", suffixes=(" current"," baseline"))
     comp["Rank change"] = comp["Scenario rank baseline"] - comp["Scenario rank current"]
     comp = comp[comp["Rank change"] != 0]

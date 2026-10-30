@@ -29,7 +29,7 @@ class StaffMapTests(unittest.TestCase):
         self.assertFalse(app.exception, [e.message for e in app.exception])
         self.assertEqual(len(app.dataframe[0].value),25)
         service = pd.read_csv(ROOT/'data/served_schools.csv', dtype={'School ID':str})
-        served_ids = service.loc[service['Service status'].eq('Currently served'),'School ID']
+        served_ids = service['School ID']
         self.assertFalse(app.dataframe[0].value['School ID'].isin(served_ids).any())
         self.assertTrue((app.dataframe[0].value['Miles from Share (approx.)'] >= 0).all())
         app.multiselect(key='staff_types').set_value(['District']).run()
@@ -45,10 +45,12 @@ class StaffMapTests(unittest.TestCase):
         app.multiselect(key='staff_types').set_value([]).run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
         self.assertEqual(len(app.dataframe[0].value), 25)
-        app.multiselect(key='staff_service').set_value(['Currently served']).run()
-        self.assertFalse(app.exception)
-        self.assertTrue(app.dataframe[0].value['School ID'].isin(served_ids).all())
-        self.assertEqual(len(app.dataframe[0].value), 15)
-        app.multiselect(key='staff_service').set_value(['Not listed as currently served']).run()
-        self.assertFalse(app.exception)
-        self.assertFalse(app.dataframe[0].value['School ID'].isin(served_ids).any())
+        top_before = app.dataframe[0].value['School ID'].tolist()
+        for group, count in [('Currently served',15), ('Formerly served',3)]:
+            app.multiselect(key='staff_service').set_value([group]).run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.dataframe[0].value['School ID'].tolist(),top_before)
+            self.assertFalse(app.dataframe[0].value['School ID'].isin(served_ids).any())
+            context = next(d.value for d in app.dataframe if 'Service status' in d.value.columns and 'Scenario score' not in d.value.columns)
+            self.assertEqual(len(context),count)
+            self.assertTrue(context['Service status'].eq(group).all())

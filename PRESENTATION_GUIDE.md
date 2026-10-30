@@ -4,11 +4,11 @@ A short walkthrough for a presentation or handoff:
 
 1. **Overview:** explain that the app ranks apparent need, not proven impact.
    Filter to a school type and grade level; change the number of schools shown.
-   Use service status to distinguish existing service from potential expansion.
+   Known current and former service is excluded from expansion recommendations; use Served Schools to review that history.
 2. **School Explorer:** open a school, show how its current weighted component
    contributions add up to its scenario score, then show named nearby food sites
    and their provider references.
-3. **Distance review:** select a service group and school type. Enter a minimum
+3. **Distance review:** select a school type. Optional service-history markers are context only and do not enter expansion shortlists. Enter a minimum
    school separation, explain the green/gray recommendations, and inspect a
    pair's rubric comparison. Distances are straight-line and the Share pin is
    approximate; this is not a delivery-route optimizer.

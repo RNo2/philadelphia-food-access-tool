@@ -28,15 +28,15 @@ class PresentationTests(unittest.TestCase):
         self.assertIn('Currently served',brief)
         self.assertIn('October 9, 2026',export_with_context(pd.DataFrame([school]),BASE_WEIGHTS,'October 9, 2026').decode())
 
-    def test_overview_service_filter_and_clear(self):
+    def test_overview_filter_and_clear(self):
         app = AppTest.from_file(str(ROOT/'app.py'),default_timeout=60).run()
-        app.multiselect(key='overview_service').set_value(['Currently served']).run()
+        app.multiselect(key='overview_types').set_value(['Charter']).run()
         self.assertFalse(app.exception, [e.message for e in app.exception])
-        self.assertEqual(len(app.dataframe[0].value),15)
-        self.assertTrue(app.dataframe[0].value['Service status'].eq('Currently served').all())
+        self.assertEqual(len(app.dataframe[0].value),25)
+        self.assertTrue(app.dataframe[0].value['Type'].eq('Charter').all())
         app.button(key='overview_clear').click().run()
         self.assertFalse(app.exception)
-        self.assertEqual(app.multiselect(key='overview_service').value,[])
+        self.assertEqual(app.multiselect(key='overview_types').value,[])
         self.assertEqual(len(app.dataframe[0].value),25)
 
     def test_empty_scenario_and_literal_search(self):
@@ -65,6 +65,4 @@ class PresentationTests(unittest.TestCase):
         self.assertFalse(app.exception)
         self.assertIsNone(app.number_input(key='lab_budget').value)
         self.assertTrue(any('outcome CSV' in uploader.label for uploader in app.get('file_uploader')))
-        app.multiselect(key='lab_service').set_value(['Currently served']).run()
-        self.assertFalse(app.exception)
-        self.assertTrue(any('15 matching candidates' in caption.value for caption in app.caption))
+        self.assertTrue(any('275 matching candidates' in caption.value for caption in app.caption))

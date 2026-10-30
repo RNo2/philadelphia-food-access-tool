@@ -13,6 +13,17 @@ def attach_service_status(schools, service):
     return result
 
 
+
+def expansion_candidates(schools):
+    """Exclude any known current or former service before selection/allocation."""
+    excluded = pd.Series(False, index=schools.index)
+    if 'Service status' in schools:
+        status = schools['Service status'].fillna('').astype(str).str.strip().str.casefold()
+        excluded |= status.isin(['currently served', 'formerly served'])
+    if 'Already served' in schools:
+        excluded |= schools['Already served'].fillna('').astype(str).str.strip().str.casefold().eq('yes')
+    return schools.loc[~excluded].copy()
+
 def export_with_context(frame, weights, snapshot):
     result = frame.copy()
     result['Model snapshot'] = snapshot
@@ -35,6 +46,7 @@ def review_brief(schools, weights, snapshot, filters):
     for _,row in schools.iterrows():
         lines.append(f"| {row['Scenario rank']} | {clean(row['School'])} | {clean(row['Type'])} / {clean(row['Level'])} | {row['Scenario score']:.1f} | {clean(row['Service status'])} |")
     lines += ['', '## Interpretation and next actions',
+              '- Currently and formerly served schools are excluded from this expansion shortlist.',
               '- Rank is relative to the citywide eligible comparison pool; shared scores can share a rank.',
               '- Need scores do not measure proven program benefit. Enrollment is potential reach, not participation.',
               '- Confirm service status, produce availability, recurring hours, and access before making commitments.',

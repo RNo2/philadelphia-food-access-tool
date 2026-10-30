@@ -18,7 +18,7 @@ class ServedSchoolTests(unittest.TestCase):
     def test_ranks_filters_and_scenarios(self):
         app = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=60).run()
         app.sidebar.radio[0].set_value('All Rankable Schools').run()
-        reference = app.dataframe[0].value.set_index('School ID')
+        expansion_ids = set(app.dataframe[0].value['School ID'])
         app.sidebar.radio[0].set_value('Served Schools').run()
         self.assertEqual(len(app.dataframe[0].value), 18)
         app.radio[0].set_value('Currently served').run()
@@ -26,8 +26,10 @@ class ServedSchoolTests(unittest.TestCase):
         table = app.dataframe[0].value
         self.assertEqual(len(table), 15)
         for _, row in table.iterrows():
-            self.assertEqual(row['Scenario rank'], reference.loc[row['School ID'], 'Scenario rank'])
+            self.assertNotIn(row['School ID'], expansion_ids)
+            self.assertFalse(pd.isna(row['Scenario rank']))
         kelly = table.set_index('School ID').loc['6470']
+        self.assertEqual(kelly['Scenario rank'], 101)
         self.assertEqual(kelly['Score /85'], 42)
         self.assertEqual(kelly['School level'], 'Elementary')
         app.sidebar.number_input[0].set_value(60).run()

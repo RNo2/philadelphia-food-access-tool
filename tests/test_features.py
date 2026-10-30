@@ -52,7 +52,7 @@ class FeatureTests(unittest.TestCase):
     def test_directory_filters_and_scenario(self):
         self.page("All Rankable Schools")
         table = self.app.dataframe[0].value
-        self.assertEqual(len(table), 293)
+        self.assertEqual(len(table), 275)
         self.assertTrue({"School type", "School level"}.issubset(table.columns))
         scores = table["Score /85"].tolist()
         self.app.sidebar.number_input[0].set_value(60).run()
@@ -70,11 +70,11 @@ class FeatureTests(unittest.TestCase):
         buttons = self.app.get("link_button")
         self.assertEqual(len(buttons), 3)
         self.assertTrue(any("have not been verified" in info.value for info in self.app.info))
-        self.assertEqual(len(self.app.dataframe[0].value), 293)
+        self.assertEqual(len(self.app.dataframe[0].value), 275)
         self.assertIn("Food evidence", self.app.dataframe[0].value.columns)
         self.app.multiselect[0].set_value([]).run()
         self.assert_ok()
-        self.assertEqual(len(self.app.dataframe[0].value), 293)
+        self.assertEqual(len(self.app.dataframe[0].value), 275)
 
     def test_map_controls(self):
         self.page("Priority Map")
@@ -88,7 +88,7 @@ class FeatureTests(unittest.TestCase):
             self.assert_ok()
         self.app.multiselect[0].set_value([]).run()
         self.assert_ok()
-        self.assertEqual(len(self.app.dataframe[0].value), 293)
+        self.assertEqual(len(self.app.dataframe[0].value), 275)
 
     def test_existing_pages(self):
         self.assertEqual(len(self.app.dataframe[0].value), 25)

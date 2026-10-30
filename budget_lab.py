@@ -3,7 +3,7 @@ import math
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from presentation import export_with_context
+from presentation import export_with_context, expansion_candidates
 
 STRATEGIES = ["Need first", "Student reach first", "Economic disadvantage first"]
 OUTCOME_COLUMNS = ["School ID", "School", "Actual cost ($)", "Students served", "Paired survey responses", "Food insecure before", "Food insecure after", "Notes"]
@@ -13,7 +13,7 @@ def allocate(schools, budget, school_cost, capacity, participation):
     """Equal school costs make selecting the top k reach values optimal for reach."""
     if budget < 0 or school_cost <= 0 or capacity < 0 or not 0 <= participation <= 1:
         raise ValueError("Invalid allocation assumptions")
-    candidates = schools.copy()
+    candidates = expansion_candidates(schools)
     candidates["Estimated participating students"] = candidates["Enrollment"].fillna(0).clip(lower=0) * participation
     candidates["Economically disadvantaged enrollment estimate"] = candidates["Enrollment"].fillna(0).clip(lower=0) * candidates["Economic %"].fillna(0)
     k = min(math.floor(budget / school_cost), int(capacity), len(candidates))
@@ -82,12 +82,12 @@ def render_budget_lab(schools, all_schools, weights, snapshot):
     st.title("Budget & Allocation Lab")
     st.write("With a limited budget, which schools should outreach reach first? Compare three allocation rules, then collect evidence about what happened.")
     st.info("Planning estimates are not measured benefits. The priority score describes need; enrollment and assumed participation describe potential reach. They do not predict improvements in food security.")
-    types_col, levels_col, service_col = st.columns(3)
+    schools = expansion_candidates(schools)
+    types_col, levels_col = st.columns(2)
     types = types_col.multiselect("School type", sorted(schools["Type"].dropna().unique()), key="lab_types")
     levels = levels_col.multiselect("School level", sorted(schools["Level"].dropna().unique()), key="lab_levels")
-    statuses = service_col.multiselect("Service status", sorted(schools["Service status"].dropna().unique()), key="lab_service")
-    candidates = schools[schools["Type"].isin(types or schools["Type"].dropna().unique()) & schools["Level"].isin(levels or schools["Level"].dropna().unique()) & schools["Service status"].isin(statuses or schools["Service status"].dropna().unique())]
-    st.caption(f"{len(candidates):,} matching candidates · Empty filters include all groups. Current service status comes from the supplied service list, not inferred from need scores.")
+    candidates = schools[schools["Type"].isin(types or schools["Type"].dropna().unique()) & schools["Level"].isin(levels or schools["Level"].dropna().unique())]
+    st.caption(f"{len(candidates):,} matching candidates · Empty filters include all groups. Both currently and formerly served schools are excluded from expansion allocations.")
     plan_tab, outcome_tab = st.tabs(["Plan an allocation", "Record observed outcomes"])
     with plan_tab:
         portfolio = render_allocation_plan(candidates, weights, snapshot)

@@ -21,7 +21,7 @@ API key is required. Streamlit 1.65 or newer is required for the layout API.
 
 ## Review workflow
 
-1. **Overview:** filter by school type, grade level, and service status. See the
+1. **Overview:** filter by school type and grade level. Known current and former service is excluded. See the
    highest-priority matching schools (25 by default, adjustable), then download
    the shortlist and a concise review brief with the snapshot and scenario weights.
 2. **School Explorer / Food Resources:** inspect component contributions,
@@ -46,9 +46,10 @@ an original-workbook download, and a final **Analytical Framework** page.
   citywide eligible comparison pool; tied scores share a rank, while Order is
   sequential. Missing component points are not imputed.
 - Service status is joined by School ID from the supplied crosswalk, distinguishing
-  15 currently served and 3 formerly served schools. "Not listed as served" is
-  not proof of no historical service. Existing citywide rank references are
-  retained. All groups are available until a service-status filter is selected.
+  15 currently served and 3 formerly served schools. Both groups are excluded
+  from expansion rankings, shortlists, budget allocations, and spacing decisions
+  before top-N limits. "Not listed as served" is not proof of no historical
+  service. Historical reference ranks remain available on Served Schools.
 - Need scores are planning indicators, not measured benefit, causal treatment
   effects, or automatic eligibility decisions. Enrollment is potential reach.
 
@@ -85,7 +86,10 @@ Hunting Park Avenue, Philadelphia. The default Share coordinates are explicitly
 approximate and editable for the session; changing the address label does not
 move the pin. Map tiles require browser internet access.
 
-The optional minimum-spacing tool considers only the filtered top 25. In rubric
+The Served Schools control on Distance review adds optional service-history map
+markers and a separate context table; it never puts those schools back into
+recommendations or pairwise distances. The optional minimum-spacing tool considers
+only the filtered top 25 expansion candidates. In rubric
 priority order, it retains each school only if it is strictly farther than the
 entered distance from every school already kept. It does not backfill beyond the
 current group or guarantee maximum school count/total score. Invalid coordinates

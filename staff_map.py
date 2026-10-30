@@ -1,10 +1,10 @@
 """Top-25 geographic planning, with explicit distance and location assumptions."""
-from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import pydeck as pdk
 import streamlit as st
+from presentation import expansion_candidates
 
 SHARE_ADDRESS = '2901 W. Hunting Park Avenue, Philadelphia, PA 19129'
 # Approximate planning location only; editable until a staff-confirmed pin is available.
@@ -19,7 +19,8 @@ def miles_between(lat1, lon1, lat2, lon2):
 
 
 def select_top_schools(ranked, types, levels):
-    # Keep deterministic scenario ordering, including tie breakers from the app.
+    # Service exclusion precedes the limit, so the shortlist refills from eligible records.
+    ranked = expansion_candidates(ranked)
     return ranked[ranked['Type'].isin(types or ranked['Type'].dropna().unique()) & ranked['Level'].isin(levels or ranked['Level'].dropna().unique())].head(25).copy()
 
 
@@ -44,7 +45,7 @@ def spacing_recommendation(schools, minimum_miles):
     """Priority-first feasible shortlist; not a maximum-cardinality optimization."""
     if not np.isfinite(minimum_miles) or minimum_miles < 0:
         raise ValueError('Minimum spacing must be finite and nonnegative.')
-    ordered = schools.sort_values(['Scenario score', 'Economic %', 'Enrollment', 'School ID'], ascending=[False, False, False, True]).copy()
+    ordered = expansion_candidates(schools).sort_values(['Scenario score', 'Economic %', 'Enrollment', 'School ID'], ascending=[False, False, False, True]).copy()
     kept = []
     decisions = []
     for _, school in ordered.iterrows():
@@ -98,13 +99,9 @@ def render_spacing_results(decisions, pairs, minimum_miles, weights):
 
 def render_staff_map(ranked, all_schools, weights):
     st.title('Distance review')
-    service = pd.read_csv(Path(__file__).resolve().parent / 'data/served_schools.csv', dtype={'School ID': str})
-    served_ids = service.loc[service['Service status'].eq('Currently served'), 'School ID']
-    ranked = ranked.copy()
-    ranked['Service status'] = np.where(ranked['School ID'].isin(served_ids), 'Currently served', 'Not listed as currently served')
-    service_filter = st.multiselect('Served Schools', ['Currently served', 'Not listed as currently served'], key='staff_service')
-    if service_filter:
-        ranked = ranked[ranked['Service status'].isin(service_filter)]
+    ranked = expansion_candidates(ranked)
+    service_filter = st.multiselect('Served Schools', ['Currently served', 'Formerly served'], key='staff_service', help='Optional map context only. Served schools never enter expansion shortlists, spacing recommendations, or allocations.')
+    context = all_schools[all_schools['Service status'].isin(service_filter)].copy() if service_filter else all_schools.head(0).copy()
     st.write('Compare the top 25 expansion priorities, their distances from Share, and schools clustered in the same area. Sidebar scenario weights update the selection.')
     st.info('Distances are straight-line miles, not driving routes or travel times. Close schools are review flags, not proof of duplicate service or a reason to exclude a school automatically.')
     with st.expander('Share dispatch location · approximate pin — confirm before route planning'):
@@ -120,6 +117,7 @@ def render_staff_map(ranked, all_schools, weights):
     types = a.multiselect('School type', sorted(ranked['Type'].dropna().unique()), key='staff_types')
     levels = b.multiselect('School level', sorted(ranked['Level'].dropna().unique()), key='staff_levels')
     st.caption('Combined grade levels are shown as recorded (for example Elementary-Middle). Filters apply before ranking selection: the map fills up to 20 schools from the chosen types and levels. Empty filters show all service groups. Fewer appear only when fewer than 25 eligible schools match. Scenario rank remains the citywide comparison rank.')
+    context = context[context['Type'].isin(types or all_schools['Type'].dropna().unique()) & context['Level'].isin(levels or all_schools['Level'].dropna().unique())]
     schools = select_top_schools(ranked, types, levels)
     mapped, pairs, matrix = distance_tables(schools, hub_lat, hub_lon)
     threshold_input = st.number_input('Flag school pairs closer than (miles)', min_value=0.1, max_value=3.0, value=None, step=0.1, key='staff_threshold')
@@ -143,6 +141,12 @@ def render_staff_map(ranked, all_schools, weights):
     layers = [pdk.Layer('ScatterplotLayer', hub, id='share-hub', get_position='[Longitude, Latitude]', get_radius=200, radius_min_pixels=14, get_fill_color=[190,35,50], pickable=True),
               pdk.Layer('TextLayer', hub, id='share-label', get_position='[Longitude, Latitude]', get_text='label', get_color=[190,35,50], get_size=16, get_pixel_offset=[0,-28])]
     view_points = [[hub_lon, hub_lat]]
+    context_mapped = context[context['Latitude'].between(-90, 90) & context['Longitude'].between(-180, 180)].copy()
+    if not context_mapped.empty:
+        context_mapped['tip'] = context_mapped['School']
+        layers.append(pdk.Layer('ScatterplotLayer', context_mapped, id='service-history-context', get_position='[Longitude, Latitude]', get_radius=200, radius_min_pixels=12, filled=False, stroked=True, get_line_color=[135,75,170], line_width_min_pixels=3, pickable=True))
+        view_points += context_mapped[['Longitude','Latitude']].values.tolist()
+
     if not mapped.empty:
         mapped['number'] = mapped['Order'].astype(str)
         mapped['name_label'] = mapped['Order'].astype(str) + ' · ' + mapped['School']
@@ -163,7 +167,7 @@ def render_staff_map(ranked, all_schools, weights):
     view = pdk.data_utils.compute_view(view_points, view_proportion=0.8) if len(view_points)>1 else pdk.ViewState(latitude=hub_lat, longitude=hub_lon, zoom=12)
     st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_provider='carto', map_style={'Street':'road','Light':'light','Dark':'dark'}[style or 'Street'], tooltip={'text':'{tip}', 'style':{'backgroundColor':'#17334d','color':'white'}}), width="stretch")
     marker_legend = 'Green = spacing recommendation · Gray = left out' if decisions is not None else 'Blue = selected schools'
-    st.caption(f'Red = Share approximate location · {marker_legend} · Orange lines = close pairs. The Served Schools filter applies before selecting the top 25; blank includes both groups. Scenario ranks and order retain their citywide values. Connections are not roads or service boundaries.')
+    st.caption(f'Red = Share approximate location · {marker_legend} · Orange lines = close pairs. Current/former service is excluded from the top 25. The Served Schools control adds purple history-context rings only; those schools never enter distance pairs or spacing recommendations. Scenario ranks and order retain their citywide values. Connections are not roads or service boundaries.')
     st.subheader('Schools in this review')
     table = schools[['Order','Scenario rank','School','Type','Level','School ID','School address','Scenario score','Service status']].merge(mapped[['School ID','Miles from Share (approx.)']], on='School ID', how='left')
     sort = st.selectbox('Sort school list', ['Scenario order', 'Nearest Share', 'Farthest Share'], index=None, key='staff_sort')
@@ -198,3 +202,8 @@ def render_staff_map(ranked, all_schools, weights):
     if decisions is not None:
         st.caption('Spacing colors: green = recommended; gray = left out. Hover labels remain school names only.')
         render_spacing_results(decisions, pairs, minimum_spacing, weights)
+
+    if service_filter:
+        with st.expander('Service-history context — not expansion recommendations'):
+            st.caption('These schools are shown only for context, subject to your type and level filters. They are excluded from every expansion shortlist and pairwise recommendation. Missing coordinates prevent a context marker, but the record remains listed here.')
+            st.dataframe(context[['School', 'School ID', 'Type', 'Level', 'Service status']], hide_index=True, width="stretch")

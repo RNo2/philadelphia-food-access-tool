@@ -499,6 +499,12 @@ elif page == "Methodology & Sources":
     links=src[src['Value'].astype(str).str.startswith(('https://','http://'))].copy()
     if not links.empty:
         st.dataframe(links.rename(columns={"Setting":"Source","Value":"URL"}),width="stretch",hide_index=True, column_config={"URL":st.column_config.LinkColumn("Original source")})
+    st.markdown("### Additional Excel workbook")
+    st.write("Download the additional workbook supplied for reference.")
+    additional_workbook = BASE / "data" / "SBD_Expansion_Model_Final-draft_026 (5).xlsx"
+    st.download_button("Download Excel workbook (5)", additional_workbook.read_bytes(), file_name=additional_workbook.name,
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.caption("Provided file, unchanged. Downloading this workbook does not change the app’s ranking data.")
     st.markdown("### Original master workbook")
     st.write("Download the original Excel model supplied as the foundation for this app, including its ranking, school-profile, and source-data worksheets.")
     st.caption("SBD_Expansion_Model_Final-draft_026.xlsx · Original file as supplied. This download is a reference workbook; the app uses its saved data snapshots and does not automatically import changes from this file.")
